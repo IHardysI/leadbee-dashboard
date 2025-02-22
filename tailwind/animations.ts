@@ -1,4 +1,4 @@
-import { EASE } from '../src/shared/animations/easings';
+import { EASE } from '../src/components/shared/animations/easings';
 import { CustomThemeConfig } from 'tailwindcss/types/config';
 
 export const animations: CustomThemeConfig['extend'] = {

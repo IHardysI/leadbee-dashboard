@@ -1,0 +1,6 @@
+/* Force full width for Clerk's UserProfile components */
+.cl-user-profile__root,
+.cl-user-profile__card {
+  width: 100% !important;
+  max-width: 100% !important;
+} 
