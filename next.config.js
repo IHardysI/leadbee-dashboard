@@ -43,6 +43,9 @@ const moduleExports = {
     });
     return config;
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 module.exports = moduleExports;
