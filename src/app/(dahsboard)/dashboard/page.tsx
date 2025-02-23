@@ -1,4 +1,7 @@
+import { DollarSign, Users } from "lucide-react"
+
 import { ClientActivityChart } from "@/components/features/dashboard/components/client-activity-chart"
+import { StatCard } from "@/components/features/dashboard/components/stats-card"
 import { StatsList } from "@/components/features/dashboard/components/stats-list"
 
 // Mock data
@@ -24,8 +27,20 @@ const activityData = [
 
 export default function DashboardPage() {
   return (
-    <div className="">
-      <div className="grid gap-8 md:grid-cols-2">
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <StatCard
+          title="Всего отправлено лидов"
+          value="2,345"
+          icon={<Users className="h-4 w-4 text-muted-foreground" />}
+        />
+        <StatCard
+          title="Общий заработок"
+          value="$45,231.89"
+          icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
+        />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
         <StatsList items={statsData} />
         <ClientActivityChart data={activityData} />
       </div>
