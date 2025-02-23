@@ -25,7 +25,6 @@ interface Lead {
 }
 
 export default function LeadsPage() {
-  // Mock data - replace with real data
   const leads: Lead[] = [
     {
       id: '1',

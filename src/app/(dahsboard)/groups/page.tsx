@@ -6,6 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { PlusCircle, UserPlus, Search, Pencil, CheckCircle, SlidersHorizontal } from "lucide-react"
 import Link from "next/link"
+import { useEffect, useState } from "react"
+import { getGroupsList } from "@/components/shared/api/groups"
 
 interface Group {
   id: string
@@ -25,54 +27,26 @@ interface Group {
 }
 
 export default function GroupsPage() {
-  const groups: Group[] = [
-    {
-      id: "1",
-      name: "Фаундеры и инвесторы",
-      analysisStatus: "done",
-      subscribers: 5000,
-      index: 0.85,
-      relevantLeads: { it: 10, design: 5, marketing: 8, sales: 12, other: 3 },
-      totalLeadsPerDay: 38,
-      location: "Dubai",
-    },
-    {
-      id: "2",
-      name: "Бизнес клуб Терра",
-      analysisStatus: "done",
-      subscribers: 3500,
-      index: 0.72,
-      relevantLeads: { it: 7, design: 3, marketing: 15, sales: 9, other: 5 },
-      totalLeadsPerDay: 39,
-    },
-    {
-      id: "3",
-      name: "Москва коннект",
-      analysisStatus: "done",
-      subscribers: 8000,
-      index: 0.91,
-      relevantLeads: { it: 20, design: 12, marketing: 18, sales: 15, other: 7 },
-      totalLeadsPerDay: 72,
-    },
-    {
-      id: "4",
-      name: "Aion development",
-      analysisStatus: "pending",
-      subscribers: 2000,
-      index: 0.68,
-      relevantLeads: { it: 25, design: 8, marketing: 5, sales: 3, other: 2 },
-      totalLeadsPerDay: 43,
-    },
-    {
-      id: "5",
-      name: "ЖК Баланс (ЖК Balance) ФОРУМ жителей",
-      analysisStatus: "done",
-      subscribers: 1500,
-      index: 0.59,
-      relevantLeads: { it: 2, design: 1, marketing: 3, sales: 1, other: 8 },
-      totalLeadsPerDay: 15,
-    },
-  ]
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function fetchGroups() {
+      try {
+        const data = await getGroupsList();
+        setGroups(data);
+      } catch (error) {
+        console.error('Error fetching groups:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchGroups();
+  }, []);
+
+  if (loading) {
+    return <div>Loading groups...</div>
+  }
 
   return (
     <div className="space-y-4">
