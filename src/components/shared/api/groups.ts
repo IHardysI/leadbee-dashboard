@@ -10,8 +10,11 @@ export const getGroupsList = async (): Promise<any> => {
 };
 
 export const createGroup = async (joinLink: string): Promise<any> => {
-  const { data } = await axios.post(`${GROUPS_BASE_URL}/group`, {
-    join_link: joinLink,
-  });
+  const payload = JSON.stringify({ join_link: joinLink });
+  const { data } = await axios.post(
+    `${GROUPS_BASE_URL}/group`,
+    { join_link: joinLink },
+    { headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } }
+  );
   return data;
 };

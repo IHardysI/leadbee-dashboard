@@ -9,6 +9,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { getGroupsList, createGroup } from "@/components/shared/api/groups"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
 
 interface Group {
   id: string
@@ -40,6 +41,7 @@ export default function GroupsPage() {
   const [isAddGroupOpen, setIsAddGroupOpen] = useState<boolean>(false);
   const [newGroupLink, setNewGroupLink] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     async function fetchGroups() {
@@ -87,23 +89,27 @@ export default function GroupsPage() {
   }, []);
 
   const handleAddGroup = async () => {
-    if (!newGroupLink.trim()) {
+    const trimmedLink = newGroupLink.trim();
+    if (!trimmedLink) {
       setErrorMessage("Ссылка не может быть пустой");
       return;
     }
     try {
-      const response = await createGroup(newGroupLink);
+      console.log("Creating group with link:", trimmedLink);
+      const response = await createGroup(trimmedLink);
       if(response.status !== "success") {
         setErrorMessage(response.message || "Ошибка при создании группы");
       } else {
+        toast({ title: "Группа успешно добавлена", variant: "default" });
         setIsAddGroupOpen(false);
         setNewGroupLink("");
         // Optionally refresh groups list here if needed
       }
     } catch (error: any) {
+      console.error("Error in handleAddGroup", error);
       let errMsg = error.response?.data?.message || "Ошибка при создании группы";
-      if(errMsg.includes("Cannot choose from an empty sequence")) {
-        errMsg = "Неверная ссылка";
+      if (errMsg.includes("empty sequence")) {
+        errMsg = "Не удалось создать группу: внутренняя ошибка сервера";
       }
       setErrorMessage(errMsg);
     }
@@ -328,10 +334,8 @@ export default function GroupsPage() {
           <DialogContent className="w-full max-w-md">
             <DialogHeader>
               <DialogTitle>Ошибка создания группы</DialogTitle>
+              <DialogDescription>{errorMessage}</DialogDescription>
             </DialogHeader>
-            <div className="p-4">
-              {errorMessage}
-            </div>
             <DialogFooter>
               <Button onClick={() => setErrorMessage(null)}>Закрыть</Button>
             </DialogFooter>
