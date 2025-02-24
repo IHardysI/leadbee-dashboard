@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { PlusCircle, UserPlus, Search, Pencil, CheckCircle, SlidersHorizontal } from "lucide-react"
+import { PlusCircle, UserPlus, Search, Pencil, CheckCircle, XCircle, SlidersHorizontal } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { getGroupsList, createGroup } from "@/components/shared/api/groups"
@@ -157,7 +157,7 @@ export default function GroupsPage() {
             {groups.map((group) => (
               <TableRow key={group.id} onClick={() => setSelectedGroup(group)} className="cursor-pointer hover:bg-gray-50">
                 <TableCell>
-                  <Link href={group.location || "#"} className="text-blue-600 hover:text-blue-800">
+                  <Link href={group.location || "#"} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:text-blue-800">
                     {group.name}
                   </Link>
                 </TableCell>
@@ -180,16 +180,11 @@ export default function GroupsPage() {
                 <TableCell>
                   {group.parsing === "done" ? (
                     <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      завершено
-                    </Badge>
-                  ) : group.parsing === "in progress" ? (
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 inline-flex items-center">
-                      в процессе
+                      <CheckCircle className="h-3 w-3" />
                     </Badge>
                   ) : (
-                    <Badge variant="secondary" className="bg-gray-100 text-gray-800 inline-flex items-center">
-                      не начато
+                    <Badge variant="secondary" className="bg-red-100 text-red-800 inline-flex items-center">
+                      <XCircle className="h-3 w-3" />
                     </Badge>
                   )}
                 </TableCell>
@@ -248,16 +243,11 @@ export default function GroupsPage() {
                     <TableCell>
                       {selectedGroup.parsing === "done" ? (
                         <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          завершено
-                        </Badge>
-                      ) : selectedGroup.parsing === "in progress" ? (
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 inline-flex items-center">
-                          в процессе
+                          <CheckCircle className="h-3 w-3" />
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="bg-gray-100 text-gray-800 inline-flex items-center">
-                          не начато
+                        <Badge variant="secondary" className="bg-red-100 text-red-800 inline-flex items-center">
+                          <XCircle className="h-3 w-3" />
                         </Badge>
                       )}
                     </TableCell>

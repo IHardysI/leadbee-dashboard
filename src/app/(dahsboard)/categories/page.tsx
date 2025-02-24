@@ -1,56 +1,30 @@
 "use client"
 
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { PlusCircle, Search, Pencil, Trash2 } from "lucide-react"
-import Link from "next/link"
-
-interface Category {
-  id: string
-  name: string
-  currentStage: "start" | "nameCreated" | "samplesGenerated" | "addedToSystem"
-}
+import { PlusCircle, Search } from "lucide-react"
+import { getCategoriesList } from "@/components/shared/api/categories"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 
 export default function CategoriesPage() {
-  const categories: Category[] = [
-    {
-      id: "1",
-      name: "spam",
-      currentStage: "addedToSystem",
-    },
-    {
-      id: "2",
-      name: "Клиент LeadBee",
-      currentStage: "samplesGenerated",
-    },
-    {
-      id: "3",
-      name: "Спам бот. Продажа спам бота для чатов в телеграмм. Борется со спамом, блокирует спам сообщения",
-      currentStage: "nameCreated",
-    },
-    {
-      id: "4",
-      name: "Запросы на экспорт и импорт товаров по всему миру",
-      currentStage: "start",
-    },
-    {
-      id: "5",
-      name: "Запросы на помощь с оплатой за товар по всему миру. Оплата из одной страны за товары в другой стране",
-      currentStage: "samplesGenerated",
-    },
-  ]
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<any | null>(null);
 
-  const stages = [
-    { key: "start", label: "Начало" },
-    { key: "nameCreated", label: "Название создано" },
-    { key: "samplesGenerated", label: "Образцы сгенерированы" },
-    { key: "addedToSystem", label: "Добавлено в систему" },
-  ] as const
-
-  const getStageIndex = (stage: Category["currentStage"]) => {
-    return stages.findIndex((s) => s.key === stage)
-  }
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await getCategoriesList();
+        setCategories(data.categories);
+      } catch (error) {
+        console.error('Error fetching categories', error);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -65,65 +39,73 @@ export default function CategoriesPage() {
         </div>
       </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[400px]">Название категории</TableHead>
-              <TableHead>Стадия</TableHead>
-              <TableHead className="w-[100px]">Действия</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {categories.map((category) => (
-              <TableRow key={category.id}>
-                <TableCell>
-                  <Link href="#" className="text-blue-600 hover:text-blue-800">
-                    {category.name}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      {stages.map((stage, index) => (
-                        <div key={stage.key} className="relative">
-                          <div
-                            className={`h-2 w-2 rounded-full ${
-                              index <= getStageIndex(category.currentStage) ? "bg-orange-500" : "bg-gray-200"
-                            }`}
-                          />
-                          {index < stages.length - 1 && (
-                            <div
-                              className={`absolute top-1/2 left-full w-2 h-0.5 -translate-y-1/2 ${
-                                index < getStageIndex(category.currentStage) ? "bg-orange-500" : "bg-gray-200"
-                              }`}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {stages[getStageIndex(category.currentStage)].label}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" className="h-8 w-8">
-                      <Pencil className="h-4 w-4" />
-                      <span className="sr-only">Редактировать</span>
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 text-red-500 hover:text-red-700">
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">Удалить</span>
-                    </Button>
-                  </div>
-                </TableCell>
+      {loading ? (
+        <div>Loading...</div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[400px]">Название категории</TableHead>
+                <TableHead>Количество сообщений в категории</TableHead>
+                <TableHead>Статус (Отслеживается / Не отслеживается)</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {categories.map((category) => (
+                <TableRow key={category.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setSelectedCategory(category)}>
+                  <TableCell>{category.name}</TableCell>
+                  <TableCell>-</TableCell>
+                  <TableCell>-</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Modal for detailed category info */}
+      {selectedCategory && (
+        <Dialog open={true} onOpenChange={() => setSelectedCategory(null)}>
+          <DialogContent className="w-full max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{selectedCategory.name}</DialogTitle>
+              <DialogDescription>Подробная информация о категории</DialogDescription>
+            </DialogHeader>
+            <div className="rounded-md border overflow-hidden mt-2">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Параметр</TableHead>
+                    <TableHead>Значение</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-bold">Название категории</TableCell>
+                    <TableCell>{selectedCategory.name}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-bold">Количество сообщений в категории</TableCell>
+                    <TableCell>-</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-bold">Статус</TableCell>
+                    <TableCell>-</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-bold">Промпт</TableCell>
+                    <TableCell>{selectedCategory.prompt}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setSelectedCategory(null)}>Закрыть</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

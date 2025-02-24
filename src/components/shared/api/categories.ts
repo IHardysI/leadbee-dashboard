@@ -7,7 +7,7 @@ import axios from 'axios';
 
 const CATEGORY_BASE_URL =
   process.env.NEXT_PUBLIC_CATEGORY_API_URL ||
-  'http://python-platforma-leadbee-freelance.reflectai.pro/leadbee';
+  'https://python-platforma-leadbee-freelance.reflectai.pro/leadbee';
 
 /**
  * Retrieves the list of available categories.
