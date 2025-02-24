@@ -1,10 +1,13 @@
+"use client"
+
 import { DollarSign, Users } from "lucide-react"
+import { useEffect, useState } from "react"
+import { getLeadsCount } from "@/components/shared/api/analytics"
 
 import { ClientActivityChart } from "@/components/features/dashboard/components/client-activity-chart"
 import { StatCard } from "@/components/features/dashboard/components/stats-card"
 import { StatsList } from "@/components/features/dashboard/components/stats-list"
 
-// Mock data
 const statsData = [
   { title: "Клиент LeadBee", count: 7012 },
   { title: "Маркетинг, SMM, SEO", count: 226 },
@@ -26,12 +29,36 @@ const activityData = [
 ]
 
 export default function DashboardPage() {
+  const [leadsCount, setLeadsCount] = useState<string>("...")
+
+  useEffect(() => {
+    console.log('fetchLeadsCount effect triggered');
+    async function fetchLeadsCount() {
+      try {
+        console.log('Calling getLeadsCount...');
+        const data = await getLeadsCount();
+        console.log('API leads count response:', data);
+        const count = data.leads_count;
+        console.log('Parsed leads count:', count);
+        setLeadsCount(count.toLocaleString());
+      } catch (error: any) {
+        if (error.response && error.response.data) {
+          console.error('Error fetching leads count:', error.response.data);
+        } else {
+          console.error('Error fetching leads count:', error);
+        }
+        setLeadsCount('Error');
+      }
+    }
+    fetchLeadsCount();
+  }, []);
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <StatCard
           title="Всего отправлено лидов"
-          value="2,345"
+          value={leadsCount}
           icon={<Users className="h-4 w-4 text-muted-foreground" />}
         />
         <StatCard
@@ -47,4 +74,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-

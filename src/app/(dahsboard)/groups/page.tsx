@@ -12,18 +12,17 @@ import { getGroupsList } from "@/components/shared/api/groups"
 interface Group {
   id: string
   name: string
-  analysisStatus: "done" | "pending"
+  analysisStatus: "done" | "pending" | "not started"
   subscribers: number
   index: number
-  relevantLeads: {
-    it: number
-    design: number
-    marketing: number
-    sales: number
-    other: number
+  requestsCount: {
+    spam: number,
+    other: number,
+    freelancers: number
   }
   totalLeadsPerDay: number
   location?: string
+  parsing: "done" | "in progress" | "not started"
 }
 
 export default function GroupsPage() {
@@ -33,8 +32,27 @@ export default function GroupsPage() {
   useEffect(() => {
     async function fetchGroups() {
       try {
-        const data = await getGroupsList();
-        setGroups(data);
+        const response = await getGroupsList();
+        if(response.status === "success") {
+          const transformed = response.groups.map((group: any) => ({
+            id: group.id,
+            name: group.title,
+            analysisStatus: group.analysis_status ? group.analysis_status : "not started",
+            subscribers: group.joined_accounts ? group.joined_accounts.length : 0,
+            index: group.analysis_result?.analysis_time_seconds || 0,
+            requestsCount: {
+              spam: group.analysis_result?.requests_count?.spam || 0,
+              other: group.analysis_result?.requests_count?.other || 0,
+              freelancers: group.analysis_result?.requests_count?.["Фрилансеры"] || 0
+            },
+            totalLeadsPerDay: group.analysis_result?.total_messages_count || 0,
+            location: group.join_link,
+            parsing: group.parsing === true ? "done" : (group.parsing === "in progress" ? "in progress" : "not started")
+          }));
+          setGroups(transformed);
+        } else {
+          console.error('API returned error status:', response);
+        }
       } catch (error) {
         console.error('Error fetching groups:', error);
       } finally {
@@ -45,7 +63,7 @@ export default function GroupsPage() {
   }, []);
 
   if (loading) {
-    return <div>Loading groups...</div>
+    return <div>Загрузка групп...</div>
   }
 
   return (
@@ -76,15 +94,12 @@ export default function GroupsPage() {
             <TableRow>
               <TableHead className="w-[250px]">Название</TableHead>
               <TableHead className="">Статус анализа</TableHead>
+              <TableHead className="">Сбор данных</TableHead>
               <TableHead className="">Подписчики</TableHead>
-              <TableHead className="">Индекс</TableHead>
-              <TableHead className="">IT</TableHead>
-              <TableHead className="">Дизайн</TableHead>
-              <TableHead className="">Маркетинг</TableHead>
-              <TableHead className="">Продажи</TableHead>
+              <TableHead className="">Спам</TableHead>
               <TableHead className="">Другое</TableHead>
+              <TableHead className="">Фрилансеры</TableHead>
               <TableHead className="">Всего лидов</TableHead>
-              <TableHead className="">Локация</TableHead>
               <TableHead className="w-[100px]">Действия</TableHead>
             </TableRow>
           </TableHeader>
@@ -92,7 +107,7 @@ export default function GroupsPage() {
             {groups.map((group) => (
               <TableRow key={group.id}>
                 <TableCell>
-                  <Link href="#" className="text-blue-600 hover:text-blue-800">
+                  <Link href={group.location || "#"} className="text-blue-600 hover:text-blue-800">
                     {group.name}
                   </Link>
                 </TableCell>
@@ -100,33 +115,43 @@ export default function GroupsPage() {
                   {group.analysisStatus === "done" ? (
                     <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center">
                       <CheckCircle className="h-3 w-3 mr-1" />
-                      done
+                      завершено
+                    </Badge>
+                  ) : group.analysisStatus === "pending" ? (
+                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 inline-flex items-center">
+                      в ожидании
                     </Badge>
                   ) : (
-                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 inline-flex items-center">
-                      pending
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-800 inline-flex items-center">
+                      не начато
+                    </Badge>
+                  )}
+                </TableCell>
+                <TableCell className="">
+                  {group.parsing === "done" ? (
+                    <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      завершено
+                    </Badge>
+                  ) : group.parsing === "in progress" ? (
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 inline-flex items-center">
+                      в процессе
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-800 inline-flex items-center">
+                      не начато
                     </Badge>
                   )}
                 </TableCell>
                 <TableCell className="">{group.subscribers.toLocaleString()}</TableCell>
-                <TableCell className="">{group.index.toFixed(2)}</TableCell>
-                <TableCell className="">{group.relevantLeads.it}</TableCell>
-                <TableCell className="">{group.relevantLeads.design}</TableCell>
-                <TableCell className="">{group.relevantLeads.marketing}</TableCell>
-                <TableCell className="">{group.relevantLeads.sales}</TableCell>
-                <TableCell className="">{group.relevantLeads.other}</TableCell>
+                <TableCell className="">{group.requestsCount.spam}</TableCell>
+                <TableCell className="">{group.requestsCount.other}</TableCell>
+                <TableCell className="">{group.requestsCount.freelancers}</TableCell>
                 <TableCell className="">{group.totalLeadsPerDay}</TableCell>
-                <TableCell className="">
-                  {group.location && (
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 inline-flex items-center">
-                      {group.location}
-                    </Badge>
-                  )}
-                </TableCell>
                 <TableCell className="">
                   <Button variant="ghost" size="sm" className="h-8 w-8 mx-auto">
                     <Pencil className="h-4 w-4" />
-                    <span className="sr-only">Edit</span>
+                    <span className="sr-only">Редактировать</span>
                   </Button>
                 </TableCell>
               </TableRow>

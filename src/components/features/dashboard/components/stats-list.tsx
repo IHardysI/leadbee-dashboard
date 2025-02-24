@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface StatsItem {
@@ -14,6 +14,9 @@ interface StatsListProps {
 export function StatsList({ items }: StatsListProps) {
   return (
     <Card>
+      <CardHeader>
+        <CardTitle>Список найденых сообщений по категориях</CardTitle>
+      </CardHeader>
       <CardContent className="p-0">
         <ScrollArea className="h-[400px]">
           <div className="space-y-0.5">

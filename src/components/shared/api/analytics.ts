@@ -8,7 +8,7 @@ import axios from 'axios';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_ANALYTICS_API_URL ||
-  'http://python-platforma-leadbee-freelance.dev.reflectai.pro/leadbee';
+  'https://python-platforma-leadbee-freelance.dev.reflectai.pro/leadbee';
 
 /**
  * Retrieves the total count of freelancers.
@@ -26,10 +26,10 @@ export const getFreelancersCount = async (date: string = ''): Promise<any> => {
  * Optionally, a specific date can be provided to filter the results.
  */
 export const getLeadsCount = async (date: string = ''): Promise<any> => {
-  const response = await axios.get(`${API_BASE_URL}/analytics/leads_count`, {
-    params: { date },
-  });
-  return response.data;
+  const param = (date && date.trim() !== '') ? date.trim() : 'overall';
+  const { data } = await axios.get(`${API_BASE_URL}/analytics/leads_count`, { params: { date: param } });
+  console.log('getLeadsCount (using param):', param, data);
+  return data;
 };
 
 /**
