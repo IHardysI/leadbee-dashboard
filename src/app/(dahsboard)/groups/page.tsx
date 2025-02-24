@@ -10,6 +10,8 @@ import { useEffect, useState } from "react"
 import { getGroupsList, createGroup } from "@/components/shared/api/groups"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
+import { Checkbox } from "@/components/ui/checkbox"
+import { getCategoriesList } from "@/components/shared/api/categories"
 
 interface Group {
   id: string
@@ -42,6 +44,17 @@ export default function GroupsPage() {
   const [newGroupLink, setNewGroupLink] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [isAnalysisDialogOpen, setIsAnalysisDialogOpen] = useState<boolean>(false);
+  const [analysisCategories, setAnalysisCategories] = useState<any[]>([]);
+  const [selectedAnalysisCategories, setSelectedAnalysisCategories] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const filteredGroups = groups.filter((group) =>
+    group.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const [analysisSelections, setAnalysisSelections] = useState<Record<string, 'start'|'stop' | null>>({});
 
   useEffect(() => {
     async function fetchGroups() {
@@ -88,6 +101,45 @@ export default function GroupsPage() {
     fetchGroups();
   }, []);
 
+  useEffect(() => {
+    if (isAnalysisDialogOpen && analysisCategories.length === 0) {
+      (async () => {
+        try {
+          const response = await getCategoriesList();
+          if(response.categories) {
+            setAnalysisCategories(response.categories);
+          }
+        } catch (error) {
+          console.error("Error fetching categories", error);
+        }
+      })();
+    }
+  }, [isAnalysisDialogOpen]);
+
+  const handleGroupSelectionChange = (groupId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedGroupIds(prev => [...prev, groupId]);
+    } else {
+      setSelectedGroupIds(prev => prev.filter(id => id !== groupId));
+    }
+  };
+
+  const handleAnalysisCategoryChange = (categoryId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedAnalysisCategories(prev => [...prev, categoryId]);
+    } else {
+      setSelectedAnalysisCategories(prev => prev.filter(id => id !== categoryId));
+    }
+  };
+
+  const handleStartAnalysis = (group: Group) => {
+    setAnalysisSelections(prev => ({ ...prev, [group.id]: 'start' }));
+  };
+
+  const handleStopAnalysis = (group: Group) => {
+    setAnalysisSelections(prev => ({ ...prev, [group.id]: 'stop' }));
+  };
+
   const handleAddGroup = async () => {
     const trimmedLink = newGroupLink.trim();
     if (!trimmedLink) {
@@ -129,14 +181,22 @@ export default function GroupsPage() {
           </Button>
           <Button variant="outline" className="flex-grow sm:flex-grow-0">
             <UserPlus className="h-4 w-4 mr-2" />
-            Присоединение
+            Присоединение аккаунтов
+          </Button>
+          <Button variant="outline" className="flex-grow sm:flex-grow-0" onClick={() => setIsAnalysisDialogOpen(true)}>
+            Начать анализ
           </Button>
         </div>
         <div className="relative flex-grow">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Поиск по названию" className="pl-9 pr-9 w-full" />
+          <Input 
+            placeholder="Поиск по названию" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 pr-9 w-full" 
+          />
           <Button variant="ghost" size="sm" className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8">
-            <SlidersHorizontal className="h-4 w-4" />
+            <Search className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -145,17 +205,24 @@ export default function GroupsPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-8" />
               <TableHead className="w-[250px]">Группа</TableHead>
               <TableHead>Статус анализа</TableHead>
               <TableHead>Сбор данных</TableHead>
               <TableHead>Количество подписчиков</TableHead>
               <TableHead>Какие аккаунты вступили</TableHead>
-              <TableHead>Всего лидов / Потенциальных лидов</TableHead>
+              <TableHead className="w-40">Всего / Потенциальных лидов</TableHead>
+              <TableHead>Анализ</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {groups.map((group) => (
+            {filteredGroups.map((group) => (
               <TableRow key={group.id} onClick={() => setSelectedGroup(group)} className="cursor-pointer hover:bg-gray-50">
+                <TableCell onClick={(e) => e.stopPropagation()} className="align-middle">
+                  <div className="flex items-center justify-center h-full">
+                    <Checkbox checked={selectedGroupIds.includes(group.id)} onCheckedChange={(checked: boolean) => handleGroupSelectionChange(group.id, checked)} />
+                  </div>
+                </TableCell>
                 <TableCell>
                   <Link href={group.location || "#"} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:text-blue-800">
                     {group.name}
@@ -190,12 +257,34 @@ export default function GroupsPage() {
                 </TableCell>
                 <TableCell>{group.subscribers}</TableCell>
                 <TableCell>
-                  {group.joinedAccounts.map((account) => (
-                    <Badge key={account} className="mr-1">{account}</Badge>
-                  ))}
+                  <div className="flex flex-wrap gap-2">
+                    {group.joinedAccounts.map((account) => (
+                      <Badge key={account}>{account}</Badge>
+                    ))}
+                  </div>
+                </TableCell>
+                <TableCell className="w-40">
+                  {`${group.actualLeads} / ${group.potentialLeads.toFixed(2)}`}
                 </TableCell>
                 <TableCell>
-                  {`${group.actualLeads} / ${group.potentialLeads.toFixed(2)}`}
+                  <div className="flex flex-wrap gap-2">
+                    <Button 
+                      size="sm" 
+                      variant={analysisSelections[group.id] === "start" ? "default" : "outline"}
+                      onClick={(e) => { e.stopPropagation(); handleStartAnalysis(group); }}
+                      className="w-40"
+                    >
+                      Запустить анализ
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant={analysisSelections[group.id] === "stop" ? "default" : "outline"}
+                      onClick={(e) => { e.stopPropagation(); handleStopAnalysis(group); }}
+                      className="w-40"
+                    >
+                      Остановить анализ
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -274,6 +363,12 @@ export default function GroupsPage() {
                       {selectedGroup.analysisResult?.total_leads_count ?? '-'} / {selectedGroup.analysisResult?.total_potential_requests !== undefined ? Number(selectedGroup.analysisResult.total_potential_requests).toFixed(2) : '-'}
                     </TableCell>
                   </TableRow>
+                  <TableRow>
+                    <TableCell className="font-bold">Анализ</TableCell>
+                    <TableCell>
+                      {analysisSelections[selectedGroup.id] ? (analysisSelections[selectedGroup.id] === "start" ? "Запустить анализ" : "Остановить анализ") : "Не выбрано"}
+                    </TableCell>
+                  </TableRow>
                   {Object.keys(selectedGroup.analysisResult?.requests_count || {}).map((key) => {
                     const displayKey = key === "spam" ? "Спам" : key === "other" ? "Другое" : key === "freelancers" ? "Фрилансеры" : key;
                     return (
@@ -328,6 +423,28 @@ export default function GroupsPage() {
             </DialogHeader>
             <DialogFooter>
               <Button onClick={() => setErrorMessage(null)}>Закрыть</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {isAnalysisDialogOpen && (
+        <Dialog open={true} onOpenChange={() => setIsAnalysisDialogOpen(false)}>
+          <DialogContent className="w-full max-w-md">
+            <DialogHeader>
+              <DialogTitle>Выберите категории для анализа</DialogTitle>
+              <DialogDescription>Выберите категории, по которым нужно провести анализ выбранных групп</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 my-4">
+              {analysisCategories.map((category) => (
+                <div key={category.id} className="flex items-center">
+                  <Checkbox checked={selectedAnalysisCategories.includes(category.id)} onCheckedChange={(checked: boolean) => handleAnalysisCategoryChange(category.id, checked)} />
+                  <span className="ml-2">{category.name}</span>
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => { /* For now, do nothing */ }}>Запуск анализа</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
