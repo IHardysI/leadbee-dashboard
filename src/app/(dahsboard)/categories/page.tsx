@@ -8,6 +8,7 @@ import { PlusCircle, Search, Pencil } from "lucide-react"
 import { getCategoriesList, upsertCategory } from "@/components/shared/api/categories"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
+import Pagination from "@/components/ui/pagination"
 
 export default function CategoriesPage() {
   const { toast } = useToast();
@@ -20,6 +21,12 @@ export default function CategoriesPage() {
   const [editCategory, setEditCategory] = useState<any | null>(null);
   const [editCategoryPrompt, setEditCategoryPrompt] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Pagination state
+  const categoriesPerPage = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [navigationMode, setNavigationMode] = useState<'pagination' | 'loadmore'>('pagination');
+  const [loadedCount, setLoadedCount] = useState(categoriesPerPage);
 
   useEffect(() => {
     (async () => {
@@ -37,6 +44,17 @@ export default function CategoriesPage() {
   const filteredCategories = categories.filter((category) =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const totalPages = Math.ceil(filteredCategories.length / categoriesPerPage);
+  const displayedCategories = navigationMode === 'loadmore'
+    ? filteredCategories.slice(0, loadedCount)
+    : filteredCategories.slice((currentPage - 1) * categoriesPerPage, currentPage * categoriesPerPage);
+
+  const handlePageChange = (page: number) => {
+    setNavigationMode('pagination');
+    setCurrentPage(page);
+    setLoadedCount(categoriesPerPage);
+  };
 
   return (
     <div className="space-y-4">
@@ -70,7 +88,7 @@ export default function CategoriesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCategories.map((category) => (
+              {displayedCategories.map((category) => (
                 <TableRow key={category.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setSelectedCategory(category)}>
                   <TableCell>{category.name}</TableCell>
                   <TableCell>-</TableCell>
@@ -84,6 +102,29 @@ export default function CategoriesPage() {
               ))}
             </TableBody>
           </Table>
+        </div>
+      )}
+
+      {/* Pagination controls */}
+      {totalPages > 1 && (
+        <Pagination 
+          currentPage={currentPage} 
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+        />
+      )}
+
+      {/* Load More button - visible if more categories available */}
+      {displayedCategories.length < filteredCategories.length && (
+        <div className="flex justify-center mt-4">
+          <Button
+            onClick={() => {
+              setNavigationMode('loadmore');
+              setLoadedCount(loadedCount + categoriesPerPage);
+            }}
+          >
+            Загрузить ещё
+          </Button>
         </div>
       )}
 

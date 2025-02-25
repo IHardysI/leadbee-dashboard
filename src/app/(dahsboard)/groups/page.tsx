@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Checkbox } from "@/components/ui/checkbox"
 import { getCategoriesList } from "@/components/shared/api/categories"
 import { analyzeGroup } from "@/components/shared/api/analytics"
+import Pagination from "@/components/ui/pagination"
 
 interface Group {
   id: string
@@ -82,6 +83,12 @@ export default function GroupsPage() {
       // Show first page, dots,  currentPage-2, -1, current, +1, +2, dots, last page
       return [1, '...', currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2, '...', totalPages];
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setNavigationMode('pagination');
+    setCurrentPage(page);
+    setLoadedCount(groupsPerPage);
   };
 
   useEffect(() => {
@@ -337,49 +344,11 @@ export default function GroupsPage() {
 
       {/* Pagination controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <Button
-            variant="outline"
-            disabled={currentPage === 1}
-            onClick={() => {
-              setNavigationMode('pagination');
-              setCurrentPage(currentPage - 1);
-              setLoadedCount(groupsPerPage);
-            }}
-          >
-            Предыдущая
-          </Button>
-          {getPaginationItems().map((item, idx) =>
-            typeof item === 'number' ? (
-              <Button
-                key={idx}
-                variant={currentPage === item ? 'default' : 'outline'}
-                onClick={() => {
-                  setNavigationMode('pagination');
-                  setCurrentPage(item);
-                  setLoadedCount(groupsPerPage);
-                }}
-              >
-                {item}
-              </Button>
-            ) : (
-              <span key={idx} className="px-2">
-                {item}
-              </span>
-            )
-          )}
-          <Button
-            variant="outline"
-            disabled={currentPage === totalPages}
-            onClick={() => {
-              setNavigationMode('pagination');
-              setCurrentPage(currentPage + 1);
-              setLoadedCount(groupsPerPage);
-            }}
-          >
-            Следующая
-          </Button>
-        </div>
+        <Pagination 
+          currentPage={currentPage} 
+          totalPages={totalPages} 
+          onPageChange={handlePageChange}
+        />
       )}
 
       {/* Load More button - always visible if there are more groups */}
