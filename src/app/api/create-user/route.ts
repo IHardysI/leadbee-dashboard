@@ -32,9 +32,10 @@ export async function POST(request: Request) {
 
     const newUser = await client.users.createUser(payload);
     return NextResponse.json({ user: newUser });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating user:", error);
-    const errorMessage = error instanceof Error ? error.message : "Error creating user";
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    const errorMessage = error?.message || "Error creating user";
+    const errorDetails = error?.response?.data || JSON.stringify(error, null, 2);
+    return NextResponse.json({ error: errorMessage, details: errorDetails }, { status: 500 });
   }
 } 

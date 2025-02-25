@@ -23,7 +23,7 @@ export default function AddUserDialog({ onClose, onAddUser }: AddUserDialogProps
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  const { register, handleSubmit } = useForm<FormValues>({
+  const { register, handleSubmit, setError, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       username: "",
@@ -57,8 +57,30 @@ export default function AddUserDialog({ onClose, onAddUser }: AddUserDialogProps
         if (onAddUser) onAddUser(newUser);
         if (onClose) onClose();
       } else {
-        console.error("Error creating user:", result.error);
-        setErrorMessage(result.error || "Error creating user.");
+        console.error("Ошибка при создании пользователя:", result.error);
+        if (result.details) {
+          let details;
+          try {
+            details = typeof result.details === 'string' ? JSON.parse(result.details) : result.details;
+          } catch (e) {
+            details = result.details;
+          }
+          if (details.errors && Array.isArray(details.errors)) {
+            const passwordError = details.errors.find((err: any) => err.meta && err.meta.paramName === 'password');
+            if (passwordError) {
+              if (passwordError.code === "form_password_pwned") {
+                passwordError.message = "Пароль обнаружен в утечке данных. Для безопасности аккаунта, пожалуйста, используйте другой пароль.";
+              }
+              setError("password", { type: "manual", message: passwordError.message });
+            } else {
+              setErrorMessage(result.error || "Ошибка при создании пользователя.");
+            }
+          } else {
+            setErrorMessage(result.error || "Ошибка при создании пользователя.");
+          }
+        } else {
+          setErrorMessage(result.error || "Ошибка при создании пользователя.");
+        }
       }
     } catch (error) {
       console.error("Error creating user:", error);
@@ -94,6 +116,7 @@ export default function AddUserDialog({ onClose, onAddUser }: AddUserDialogProps
               {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
             </button>
           </div>
+          {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
         </div>
         <div>
           <Label htmlFor="role" className="block mb-1">Роль</Label>
