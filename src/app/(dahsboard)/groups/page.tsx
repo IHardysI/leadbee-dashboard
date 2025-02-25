@@ -12,11 +12,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useToast } from "@/hooks/use-toast"
 import { Checkbox } from "@/components/ui/checkbox"
 import { getCategoriesList } from "@/components/shared/api/categories"
+import { analyzeGroup } from "@/components/shared/api/analytics"
 
 interface Group {
   id: string
   name: string
-  analysisStatus: "done" | "pending" | "not started"
+  analysisStatus: "done" | "pending" | "failed" | "not_started"
   subscribers: string
   requestsCount: {
     spam: number,
@@ -77,7 +78,7 @@ export default function GroupsPage() {
             return {
               id: group.id,
               name: group.title,
-              analysisStatus: group.analysis_status ? group.analysis_status : "not started",
+              analysisStatus: group.analysis_status ? group.analysis_status : "not_started",
               subscribers: "-",
               requestsCount,
               actualLeads,
@@ -248,11 +249,16 @@ export default function GroupsPage() {
                     <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 inline-flex items-center">
                       в ожидании
                     </Badge>
-                  ) : (
+                  ) : group.analysisStatus === "failed" ? (
+                    <Badge variant="secondary" className="bg-red-100 text-red-800 inline-flex items-center">
+                      <XCircle className="h-3 w-3 mr-1" />
+                      ошибка
+                    </Badge>
+                  ) : group.analysisStatus === "not_started" ? (
                     <Badge variant="secondary" className="bg-gray-100 text-gray-800 inline-flex items-center">
                       не начато
                     </Badge>
-                  )}
+                  ) : null}
                 </TableCell>
                 <TableCell>
                   {group.parsing === "done" ? (
@@ -330,11 +336,16 @@ export default function GroupsPage() {
                         <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 inline-flex items-center">
                           в ожидании
                         </Badge>
-                      ) : (
+                      ) : selectedGroup.analysisStatus === "failed" ? (
+                        <Badge variant="secondary" className="bg-red-100 text-red-800 inline-flex items-center">
+                          <XCircle className="h-3 w-3 mr-1" />
+                          ошибка
+                        </Badge>
+                      ) : selectedGroup.analysisStatus === "not_started" ? (
                         <Badge variant="secondary" className="bg-gray-100 text-gray-800 inline-flex items-center">
                           не начато
                         </Badge>
-                      )}
+                      ) : null}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -467,7 +478,16 @@ export default function GroupsPage() {
               ))}
             </div>
             <DialogFooter>
-              <Button onClick={() => { /* For now, do nothing */ }}>Запуск анализа</Button>
+              <Button onClick={async () => {
+                try {
+                  const response = await analyzeGroup(selectedGroupIds, selectedAnalysisCategories);
+                  toast({ title: "Анализ запущен", description: "Анализ выбранных групп запущен успешно." });
+                  setIsAnalysisDialogOpen(false);
+                } catch (error) {
+                  console.error("Error launching analysis:", error);
+                  toast({ title: "Ошибка", description: "Не удалось запустить анализ выбранных групп." });
+                }
+              }}>Запуск анализа</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

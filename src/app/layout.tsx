@@ -3,6 +3,7 @@ import React from 'react';
 import { ClerkProvider } from '@clerk/nextjs';  
 import { ruRU } from '@clerk/localizations'
 import { Toaster } from "@/components/ui/toaster";
+import logo from "/public/images/logo.jpg";
 
 export const metadata = {
   title: 'LeadBee Dashboard',
@@ -17,7 +18,10 @@ export default function RootLayout({
   return (
     <ClerkProvider localization={ruRU}>
       <html lang="ru">
-        <head />
+        <head>
+          <title>LeadBee Dashboard</title>
+          <link rel="icon" href={logo.src} />
+        </head>
         <body>
           {children}
           <Toaster />

@@ -7,7 +7,7 @@ import { getLeadsCount } from "@/components/shared/api/analytics"
 import { ClientActivityChart } from "@/components/features/dashboard/components/client-activity-chart"
 import { StatCard } from "@/components/features/dashboard/components/stats-card"
 import { StatsList } from "@/components/features/dashboard/components/stats-list"
-
+import { DateRangePicker } from "@/components/ui/date-range-picker"
 const statsData = [
   { title: "Клиент LeadBee", count: 7012 },
   { title: "Маркетинг, SMM, SEO", count: 226 },
@@ -30,6 +30,7 @@ const activityData = [
 
 export default function DashboardPage() {
   const [leadsCount, setLeadsCount] = useState<string>("...")
+  const [dateRange, setDateRange] = useState<[Date, Date]>([new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), new Date()])
 
   useEffect(() => {
     console.log('fetchLeadsCount effect triggered');
@@ -53,8 +54,23 @@ export default function DashboardPage() {
     fetchLeadsCount();
   }, []);
 
+  useEffect(() => {
+    console.log("Time range changed:", dateRange);
+  }, [dateRange]);
+
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <span className="text-sm text-muted-foreground mr-2">Временной диапазон:</span>
+        <DateRangePicker
+          value={dateRange}
+          onChange={(range: [Date, Date] | null) => {
+            if (range) {
+              setDateRange(range);
+            }
+          }}
+        />
+      </div>
       <div className="grid gap-4 md:grid-cols-2">
         <StatCard
           title="Всего отправлено лидов"
