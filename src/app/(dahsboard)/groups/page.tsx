@@ -51,11 +51,38 @@ export default function GroupsPage() {
   const [analysisCategories, setAnalysisCategories] = useState<any[]>([]);
   const [selectedAnalysisCategories, setSelectedAnalysisCategories] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const groupsPerPage = 20;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [navigationMode, setNavigationMode] = useState<'pagination' | 'loadmore'>('pagination');
+  const [loadedCount, setLoadedCount] = useState(groupsPerPage);
+
   const filteredGroups = groups.filter((group) =>
     group.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalPages = Math.ceil(filteredGroups.length / groupsPerPage);
+
+  const displayedGroups = navigationMode === 'loadmore'
+    ? filteredGroups.slice(0, loadedCount)
+    : filteredGroups.slice((currentPage - 1) * groupsPerPage, currentPage * groupsPerPage);
+
   const [analysisSelections, setAnalysisSelections] = useState<Record<string, 'start'|'stop' | null>>({});
+
+  const getPaginationItems = (): (number | string)[] => {
+    if (totalPages <= 10) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 6) {
+      // Show first 8 pages, then dots, then last page
+      return [...Array.from({ length: 8 }, (_, i) => i + 1), '...', totalPages];
+    } else if (currentPage >= totalPages - 5) {
+      // Show first page, then dots, then last 8 pages
+      return [1, '...', ...Array.from({ length: 8 }, (_, i) => totalPages - 7 + i)];
+    } else {
+      // Show first page, dots,  currentPage-2, -1, current, +1, +2, dots, last page
+      return [1, '...', currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2, '...', totalPages];
+    }
+  };
 
   useEffect(() => {
     async function fetchGroups() {
@@ -227,7 +254,7 @@ export default function GroupsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredGroups.map((group) => (
+            {displayedGroups.map((group) => (
               <TableRow key={group.id} onClick={() => setSelectedGroup(group)} className="cursor-pointer hover:bg-gray-50">
                 <TableCell onClick={(e) => e.stopPropagation()} className="align-middle">
                   <div className="flex items-center justify-center h-full">
@@ -307,6 +334,67 @@ export default function GroupsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <Button
+            variant="outline"
+            disabled={currentPage === 1}
+            onClick={() => {
+              setNavigationMode('pagination');
+              setCurrentPage(currentPage - 1);
+              setLoadedCount(groupsPerPage);
+            }}
+          >
+            Предыдущая
+          </Button>
+          {getPaginationItems().map((item, idx) =>
+            typeof item === 'number' ? (
+              <Button
+                key={idx}
+                variant={currentPage === item ? 'default' : 'outline'}
+                onClick={() => {
+                  setNavigationMode('pagination');
+                  setCurrentPage(item);
+                  setLoadedCount(groupsPerPage);
+                }}
+              >
+                {item}
+              </Button>
+            ) : (
+              <span key={idx} className="px-2">
+                {item}
+              </span>
+            )
+          )}
+          <Button
+            variant="outline"
+            disabled={currentPage === totalPages}
+            onClick={() => {
+              setNavigationMode('pagination');
+              setCurrentPage(currentPage + 1);
+              setLoadedCount(groupsPerPage);
+            }}
+          >
+            Следующая
+          </Button>
+        </div>
+      )}
+
+      {/* Load More button - always visible if there are more groups */}
+      {displayedGroups.length < filteredGroups.length && (
+        <div className="flex justify-center mt-4">
+          <Button
+            onClick={() => {
+              setNavigationMode('loadmore');
+              setLoadedCount(loadedCount + groupsPerPage);
+            }}
+          >
+            Загрузить ещё
+          </Button>
+        </div>
+      )}
 
       {selectedGroup && (
         <Dialog open={true} onOpenChange={() => setSelectedGroup(null)}>
