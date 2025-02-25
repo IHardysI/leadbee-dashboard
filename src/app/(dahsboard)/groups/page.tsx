@@ -195,9 +195,6 @@ export default function GroupsPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 pr-9 w-full" 
           />
-          <Button variant="ghost" size="sm" className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8">
-            <Search className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 

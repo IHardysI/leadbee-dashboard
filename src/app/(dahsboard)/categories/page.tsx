@@ -19,6 +19,7 @@ export default function CategoriesPage() {
   const [newCategoryPrompt, setNewCategoryPrompt] = useState('');
   const [editCategory, setEditCategory] = useState<any | null>(null);
   const [editCategoryPrompt, setEditCategoryPrompt] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -33,6 +34,10 @@ export default function CategoriesPage() {
     })();
   }, []);
 
+  const filteredCategories = categories.filter((category) =>
+    category.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-4">
@@ -42,7 +47,12 @@ export default function CategoriesPage() {
         </Button>
         <div className="relative flex-grow">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Поиск по названию категории" className="pl-9 w-full" />
+          <Input
+            placeholder="Поиск по названию категории"
+            className="pl-9 w-full"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
       </div>
 
@@ -60,7 +70,7 @@ export default function CategoriesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {categories.map((category) => (
+              {filteredCategories.map((category) => (
                 <TableRow key={category.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setSelectedCategory(category)}>
                   <TableCell>{category.name}</TableCell>
                   <TableCell>-</TableCell>
