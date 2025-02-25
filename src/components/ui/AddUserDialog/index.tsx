@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { signUpSchema } from "@/components/shared/lib/zod";
 import { z } from "zod";
 import { User } from '@/components/ui/UserTable';
+import { Eye, EyeOff } from 'lucide-react';
 
 export type FormValues = z.infer<typeof signUpSchema>;
 
@@ -20,6 +21,7 @@ export interface AddUserDialogProps {
 export default function AddUserDialog({ onClose, onAddUser }: AddUserDialogProps) {
   const [pending, setPending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const { register, handleSubmit } = useForm<FormValues>({
     resolver: zodResolver(signUpSchema),
@@ -86,7 +88,12 @@ export default function AddUserDialog({ onClose, onAddUser }: AddUserDialogProps
         </div>
         <div>
           <Label htmlFor="password" className="block mb-1">Пароль</Label>
-          <Input id="password" type="password" placeholder="Введите пароль" {...register("password")} />
+          <div className="relative">
+            <Input id="password" type={showPassword ? "text" : "password"} placeholder="Введите пароль" {...register("password")} className="w-full pr-10" />
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center pr-3">
+              {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
         <div>
           <Label htmlFor="role" className="block mb-1">Роль</Label>
