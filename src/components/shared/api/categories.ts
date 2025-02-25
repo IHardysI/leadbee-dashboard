@@ -22,6 +22,10 @@ export const getCategoriesList = async (): Promise<any> => {
  * If the category does not exist, it will be created.
  */
 export const upsertCategory = async (name: string, prompt: string): Promise<any> => {
-  const { data } = await axios.post(`${CATEGORY_BASE_URL}/category`, { name, prompt });
+  const { data } = await axios.post(
+    `${CATEGORY_BASE_URL}/category/`,
+    { name, prompt },
+    { headers: { 'Content-Type': 'application/json' } }
+  );
   return data;
 };

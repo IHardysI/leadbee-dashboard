@@ -2,7 +2,7 @@ import './globals.css';
 import React from 'react';
 import { ClerkProvider } from '@clerk/nextjs';  
 import { ruRU } from '@clerk/localizations'
-
+import { Toaster } from "@/components/ui/toaster";
 
 export const metadata = {
   title: 'LeadBee Dashboard',
@@ -18,7 +18,10 @@ export default function RootLayout({
     <ClerkProvider localization={ruRU}>
       <html lang="ru">
         <head />
-        <body>{children}</body>
+        <body>
+          {children}
+          <Toaster />
+        </body>
       </html>
     </ClerkProvider>
   );

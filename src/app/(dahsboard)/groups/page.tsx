@@ -307,7 +307,7 @@ export default function GroupsPage() {
 
       {selectedGroup && (
         <Dialog open={true} onOpenChange={() => setSelectedGroup(null)}>
-          <DialogContent className="!w-[95vw] !max-w-[95vw]">
+          <DialogContent className="!w-[80vw] !max-w-[80vw]">
             <DialogHeader>
               <DialogTitle>{selectedGroup.name}</DialogTitle>
               <DialogDescription>Подробная информация о группе</DialogDescription>

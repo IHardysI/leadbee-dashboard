@@ -4,14 +4,21 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { PlusCircle, Search } from "lucide-react"
-import { getCategoriesList } from "@/components/shared/api/categories"
+import { PlusCircle, Search, Pencil } from "lucide-react"
+import { getCategoriesList, upsertCategory } from "@/components/shared/api/categories"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
 
 export default function CategoriesPage() {
+  const { toast } = useToast();
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<any | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryPrompt, setNewCategoryPrompt] = useState('');
+  const [editCategory, setEditCategory] = useState<any | null>(null);
+  const [editCategoryPrompt, setEditCategoryPrompt] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -29,7 +36,7 @@ export default function CategoriesPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-4">
-        <Button className="bg-orange-500 hover:bg-orange-600 w-full sm:w-auto">
+        <Button className="bg-cYellow/90 hover:bg-cYellow w-full sm:w-auto" onClick={() => setCreateDialogOpen(true)}>
           <PlusCircle className="h-4 w-4 mr-2" />
           Добавить
         </Button>
@@ -49,6 +56,7 @@ export default function CategoriesPage() {
                 <TableHead className="w-[400px]">Название категории</TableHead>
                 <TableHead>Количество сообщений в категории</TableHead>
                 <TableHead>Статус (Отслеживается / Не отслеживается)</TableHead>
+                <TableHead className="w-16">Редактировать</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -57,6 +65,11 @@ export default function CategoriesPage() {
                   <TableCell>{category.name}</TableCell>
                   <TableCell>-</TableCell>
                   <TableCell>-</TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" onClick={() => { setEditCategory(category); setEditCategoryPrompt(category.prompt || ''); }}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -64,7 +77,7 @@ export default function CategoriesPage() {
         </div>
       )}
 
-      {/* Modal for detailed category info */}
+      {/* Dialog for category details */}
       {selectedCategory && (
         <Dialog open={true} onOpenChange={() => setSelectedCategory(null)}>
           <DialogContent className="w-full max-w-2xl">
@@ -106,7 +119,101 @@ export default function CategoriesPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Dialog for adding a new category */}
+      {createDialogOpen && (
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogContent className="w-full max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Добавить новую категорию</DialogTitle>
+              <DialogDescription>Введите название категории и промпт.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 my-4">
+              <Input
+                placeholder="Название категории"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+              />
+              <textarea
+                placeholder="Промпт"
+                value={newCategoryPrompt}
+                onChange={(e) => setNewCategoryPrompt(e.target.value)}
+                className="w-full border rounded p-2"
+                rows={4}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={async () => {
+                  try {
+                    await upsertCategory(newCategoryName, newCategoryPrompt);
+                    const data = await getCategoriesList();
+                    setCategories(data.categories);
+                    toast({ title: "Успех", description: "Категория успешно добавлена", variant: "default" });
+                    setCreateDialogOpen(false);
+                    setNewCategoryName('');
+                    setNewCategoryPrompt('');
+                  } catch (error) {
+                    console.error('Error upserting category', error);
+                  }
+                }}
+              >
+                Добавить
+              </Button>
+              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                Отмена
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Dialog for editing a category */}
+      {editCategory && (
+        <Dialog open={true} onOpenChange={() => setEditCategory(null)}>
+          <DialogContent className="w-full max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Редактировать категорию</DialogTitle>
+              <DialogDescription>Измените промпт категории.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 my-4">
+              <Input
+                placeholder="Название категории"
+                value={editCategory.name}
+                disabled
+              />
+              <textarea
+                placeholder="Промпт"
+                value={editCategoryPrompt}
+                onChange={(e) => setEditCategoryPrompt(e.target.value)}
+                className="w-full border rounded p-2"
+                rows={4}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={async () => {
+                  try {
+                    await upsertCategory(editCategory.name, editCategoryPrompt);
+                    const data = await getCategoriesList();
+                    setCategories(data.categories);
+                    toast({ title: "Успех", description: "Категория успешно изменена", variant: "default" });
+                    setEditCategory(null);
+                  } catch (error) {
+                    console.error('Error editing category', error);
+                  }
+                }}
+              >
+                Подтвердить
+              </Button>
+              <Button variant="outline" onClick={() => setEditCategory(null)}>
+                Отмена
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
-  )
+  );
 }
 
