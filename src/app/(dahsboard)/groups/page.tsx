@@ -205,7 +205,20 @@ export default function GroupsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-8" />
+              <TableHead className="w-8">
+                <div className="flex items-center justify-center h-full">
+                  <Checkbox
+                    checked={filteredGroups.length > 0 && filteredGroups.every((group) => selectedGroupIds.includes(group.id))}
+                    onCheckedChange={(checked: boolean) => {
+                      if (checked) {
+                        setSelectedGroupIds(filteredGroups.map(group => group.id));
+                      } else {
+                        setSelectedGroupIds([]);
+                      }
+                    }}
+                  />
+                </div>
+              </TableHead>
               <TableHead className="w-[250px]">Группа</TableHead>
               <TableHead>Статус анализа</TableHead>
               <TableHead>Сбор данных</TableHead>
@@ -436,6 +449,19 @@ export default function GroupsPage() {
               <DialogDescription>Выберите категории, по которым нужно провести анализ выбранных групп</DialogDescription>
             </DialogHeader>
             <div className="space-y-2 my-4">
+              <div className="flex items-center">
+                <Checkbox
+                  checked={analysisCategories.length > 0 && selectedAnalysisCategories.length === analysisCategories.length}
+                  onCheckedChange={(checked: boolean) => {
+                    if (checked) {
+                      setSelectedAnalysisCategories(analysisCategories.map((cat: any) => cat.id));
+                    } else {
+                      setSelectedAnalysisCategories([]);
+                    }
+                  }}
+                />
+                <span className="ml-2">Выбрать все</span>
+              </div>
               {analysisCategories.map((category) => (
                 <div key={category.id} className="flex items-center">
                   <Checkbox checked={selectedAnalysisCategories.includes(category.id)} onCheckedChange={(checked: boolean) => handleAnalysisCategoryChange(category.id, checked)} />
