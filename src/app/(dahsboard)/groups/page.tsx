@@ -372,7 +372,7 @@ export default function GroupsPage() {
               <DialogTitle>{selectedGroup.name}</DialogTitle>
               <DialogDescription>Подробная информация о группе</DialogDescription>
             </DialogHeader>
-            <div className="rounded-md border overflow-hidden mt-2">
+            <div className="rounded-md border mt-2 max-h-[60vh] overflow-y-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
