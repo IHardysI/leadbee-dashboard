@@ -314,7 +314,7 @@ export default function GroupsPage() {
                   </div>
                 </TableCell>
                 <TableCell className="w-40">
-                  {`${group.actualLeads} / ${group.potentialLeads.toFixed(2)}`}
+                  {`${group.analysisResult?.total_leads_count ?? '-'} / ${group.analysisResult?.total_potential_requests !== undefined ? Number(group.analysisResult.total_potential_requests).toFixed(2) : '-'}`}
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-2">
