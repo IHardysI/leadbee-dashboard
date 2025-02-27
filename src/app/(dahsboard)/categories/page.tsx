@@ -78,22 +78,22 @@ export default function CategoriesPage() {
         <div>Loading...</div>
       ) : (
         <div className="rounded-md border">
-          <Table>
+          <Table className="table-fixed w-full">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[400px]">Название категории</TableHead>
-                <TableHead>Количество сообщений в категории</TableHead>
-                <TableHead>Статус (Отслеживается / Не отслеживается)</TableHead>
-                <TableHead className="w-16">Редактировать</TableHead>
+                <TableHead className="w-[400px] whitespace-normal">Название категории</TableHead>
+                <TableHead className="whitespace-normal">Количество сообщений в категории</TableHead>
+                <TableHead className="whitespace-normal">Статус (Отслеживается / Не отслеживается)</TableHead>
+                <TableHead className="w-16 whitespace-normal">Редактировать</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {displayedCategories.map((category) => (
                 <TableRow key={category.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setSelectedCategory(category)}>
-                  <TableCell>{category.name}</TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="whitespace-normal">{category.name}</TableCell>
+                  <TableCell className="whitespace-normal">-</TableCell>
+                  <TableCell className="whitespace-normal">-</TableCell>
+                  <TableCell className="whitespace-normal" onClick={(e) => e.stopPropagation()}>
                     <Button variant="ghost" onClick={() => { setEditCategory(category); setEditCategoryPrompt(category.prompt || ''); }}>
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -114,7 +114,7 @@ export default function CategoriesPage() {
         />
       )}
 
-      {/* Load More button - visible if more categories available */}
+      {/* Load More button */}
       {displayedCategories.length < filteredCategories.length && (
         <div className="flex justify-center mt-4">
           <Button
@@ -131,13 +131,13 @@ export default function CategoriesPage() {
       {/* Dialog for category details */}
       {selectedCategory && (
         <Dialog open={true} onOpenChange={() => setSelectedCategory(null)}>
-          <DialogContent className="w-full max-w-2xl">
+          <DialogContent className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{selectedCategory.name}</DialogTitle>
               <DialogDescription>Подробная информация о категории</DialogDescription>
             </DialogHeader>
             <div className="rounded-md border overflow-hidden mt-2">
-              <Table>
+              <Table className="table-fixed w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Параметр</TableHead>
@@ -146,20 +146,20 @@ export default function CategoriesPage() {
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-bold">Название категории</TableCell>
-                    <TableCell>{selectedCategory.name}</TableCell>
+                    <TableCell className="font-bold whitespace-normal">Название категории</TableCell>
+                    <TableCell className="whitespace-normal">{selectedCategory.name}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-bold">Количество сообщений в категории</TableCell>
-                    <TableCell>-</TableCell>
+                    <TableCell className="font-bold whitespace-normal">Количество сообщений в категории</TableCell>
+                    <TableCell className="whitespace-normal">-</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-bold">Статус</TableCell>
-                    <TableCell>-</TableCell>
+                    <TableCell className="font-bold whitespace-normal">Статус</TableCell>
+                    <TableCell className="whitespace-normal">-</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-bold">Промпт</TableCell>
-                    <TableCell>{selectedCategory.prompt}</TableCell>
+                    <TableCell className="font-bold whitespace-normal">Промпт</TableCell>
+                    <TableCell className="whitespace-normal">{selectedCategory.prompt}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

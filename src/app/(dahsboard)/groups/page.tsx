@@ -234,10 +234,10 @@ export default function GroupsPage() {
       </div>
 
       <div className="rounded-md border overflow-hidden">
-        <Table>
+        <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-8">
+              <TableHead className="w-8 whitespace-normal">
                 <div className="flex items-center justify-center h-full">
                   <Checkbox
                     checked={filteredGroups.length > 0 && filteredGroups.every((group) => selectedGroupIds.includes(group.id))}
@@ -251,88 +251,108 @@ export default function GroupsPage() {
                   />
                 </div>
               </TableHead>
-              <TableHead className="w-[250px]">Группа</TableHead>
-              <TableHead>Статус анализа</TableHead>
-              <TableHead>Сбор данных</TableHead>
-              <TableHead>Количество подписчиков</TableHead>
-              <TableHead>Какие аккаунты вступили</TableHead>
-              <TableHead className="w-40">Всего / Потенциальных лидов</TableHead>
-              <TableHead>Анализ</TableHead>
+              <TableHead className="w-[250px] whitespace-normal">Группа</TableHead>
+              <TableHead className="whitespace-normal">Статус анализа</TableHead>
+              <TableHead className="whitespace-normal">Сбор данных</TableHead>
+              <TableHead className="whitespace-normal">Количество подписчиков</TableHead>
+              <TableHead className="whitespace-normal">Какие аккаунты вступили</TableHead>
+              <TableHead className="w-40 whitespace-normal">Всего / Потенциальных лидов</TableHead>
+              <TableHead className="whitespace-normal">Анализ</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {displayedGroups.map((group) => (
               <TableRow key={group.id} onClick={() => setSelectedGroup(group)} className="cursor-pointer hover:bg-gray-50">
-                <TableCell onClick={(e) => e.stopPropagation()} className="align-middle">
+                <TableCell onClick={(e) => e.stopPropagation()} className="align-middle whitespace-normal">
                   <div className="flex items-center justify-center h-full">
                     <Checkbox checked={selectedGroupIds.includes(group.id)} onCheckedChange={(checked: boolean) => handleGroupSelectionChange(group.id, checked)} />
                   </div>
                 </TableCell>
-                <TableCell>
-                  <Link href={group.location || "#"} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:text-blue-800">
+                <TableCell className="whitespace-normal">
+                  <Link href={group.location || "#"} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:text-blue-800 whitespace-normal">
                     {group.name}
                   </Link>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-normal">
                   {group.analysisStatus === "done" ? (
-                    <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center">
+                    <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center whitespace-normal">
                       <CheckCircle className="h-3 w-3 mr-1" />
                       завершено
                     </Badge>
                   ) : group.analysisStatus === "pending" ? (
-                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 inline-flex items-center">
+                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 inline-flex items-center whitespace-normal">
                       в ожидании
                     </Badge>
                   ) : group.analysisStatus === "failed" ? (
-                    <Badge variant="secondary" className="bg-red-100 text-red-800 inline-flex items-center">
+                    <Badge variant="secondary" className="bg-red-100 text-red-800 inline-flex items-center whitespace-normal">
                       <XCircle className="h-3 w-3 mr-1" />
                       ошибка
                     </Badge>
                   ) : group.analysisStatus === "not_started" ? (
-                    <Badge variant="secondary" className="bg-gray-100 text-gray-800 inline-flex items-center">
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-800 inline-flex items-center whitespace-normal">
                       не начато
                     </Badge>
                   ) : null}
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-normal">
                   {group.parsing === "done" ? (
-                    <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center">
+                    <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center whitespace-normal">
                       <CheckCircle className="h-3 w-3" />
                     </Badge>
                   ) : (
-                    <Badge variant="secondary" className="bg-red-100 text-red-800 inline-flex items-center">
+                    <Badge variant="secondary" className="bg-red-100 text-red-800 inline-flex items-center whitespace-normal">
                       <XCircle className="h-3 w-3" />
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell>{group.subscribers}</TableCell>
-                <TableCell>
+                <TableCell className="whitespace-normal">{group.subscribers}</TableCell>
+                <TableCell className="whitespace-normal">
                   <div className="flex flex-wrap gap-2">
                     {group.joinedAccounts.map((account) => (
-                      <Badge key={account}>{account}</Badge>
+                      <Badge key={account} className="whitespace-normal">{account}</Badge>
                     ))}
                   </div>
                 </TableCell>
-                <TableCell className="w-40">
+                <TableCell className="w-40 whitespace-normal">
                   {`${group.analysisResult?.total_leads_count ?? '-'} / ${group.analysisResult?.total_potential_requests !== undefined ? Number(group.analysisResult.total_potential_requests).toFixed(2) : '-'}`}
                 </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-2">
-                    <Button 
-                      size="sm" 
+                <TableCell className="whitespace-normal">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="icon"
                       variant={analysisSelections[group.id] === "start" ? "default" : "outline"}
-                      onClick={(e) => { e.stopPropagation(); handleStartAnalysis(group); }}
-                      className="w-40"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartAnalysis(group);
+                      }}
+                      className={`p-2 rounded-full transition-transform duration-200 ${analysisSelections[group.id] === "start" ? "scale-110" : ""}`}
                     >
-                      Запустить анализ
+                      <span className="sr-only">Запустить анализ</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        className={`h-4 w-4 fill-current ${analysisSelections[group.id] === "start" ? "text-accent" : "text-black"}`}
+                      >
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
                     </Button>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="icon"
                       variant={analysisSelections[group.id] === "stop" ? "default" : "outline"}
-                      onClick={(e) => { e.stopPropagation(); handleStopAnalysis(group); }}
-                      className="w-40"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStopAnalysis(group);
+                      }}
+                      className={`p-2 rounded-full transition-transform duration-200 ${analysisSelections[group.id] === "stop" ? "scale-110" : ""}`}
                     >
-                      Остановить анализ
+                      <span className="sr-only">Остановить анализ</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        className={`h-4 w-4 fill-current ${analysisSelections[group.id] === "stop" ? "text-accent" : "text-black"}`}
+                      >
+                        <rect x="6" y="6" width="12" height="12" rx="2" />
+                      </svg>
                     </Button>
                   </div>
                 </TableCell>
@@ -373,7 +393,7 @@ export default function GroupsPage() {
               <DialogDescription>Подробная информация о группе</DialogDescription>
             </DialogHeader>
             <div className="rounded-md border mt-2 max-h-[60vh] overflow-y-auto">
-              <Table>
+              <Table className="table-fixed w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Параметр</TableHead>
@@ -382,53 +402,53 @@ export default function GroupsPage() {
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-bold">Статус анализа</TableCell>
-                    <TableCell>
+                    <TableCell className="font-bold whitespace-normal">Статус анализа</TableCell>
+                    <TableCell className="whitespace-normal">
                       {selectedGroup.analysisStatus === "done" ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center">
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center whitespace-normal">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           завершено
                         </Badge>
                       ) : selectedGroup.analysisStatus === "pending" ? (
-                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 inline-flex items-center">
+                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 inline-flex items-center whitespace-normal">
                           в ожидании
                         </Badge>
                       ) : selectedGroup.analysisStatus === "failed" ? (
-                        <Badge variant="secondary" className="bg-red-100 text-red-800 inline-flex items-center">
+                        <Badge variant="secondary" className="bg-red-100 text-red-800 inline-flex items-center whitespace-normal">
                           <XCircle className="h-3 w-3 mr-1" />
                           ошибка
                         </Badge>
                       ) : selectedGroup.analysisStatus === "not_started" ? (
-                        <Badge variant="secondary" className="bg-gray-100 text-gray-800 inline-flex items-center">
+                        <Badge variant="secondary" className="bg-gray-100 text-gray-800 inline-flex items-center whitespace-normal">
                           не начато
                         </Badge>
                       ) : null}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-bold">Сбор данных</TableCell>
-                    <TableCell>
+                    <TableCell className="font-bold whitespace-normal">Сбор данных</TableCell>
+                    <TableCell className="whitespace-normal">
                       {selectedGroup.parsing === "done" ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center">
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center whitespace-normal">
                           <CheckCircle className="h-3 w-3" />
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="bg-red-100 text-red-800 inline-flex items-center">
+                        <Badge variant="secondary" className="bg-red-100 text-red-800 inline-flex items-center whitespace-normal">
                           <XCircle className="h-3 w-3" />
                         </Badge>
                       )}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-bold">Количество подписчиков</TableCell>
-                    <TableCell>{selectedGroup.subscribers}</TableCell>
+                    <TableCell className="font-bold whitespace-normal">Количество подписчиков</TableCell>
+                    <TableCell className="whitespace-normal">{selectedGroup.subscribers}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-bold">Какие аккаунты вступили</TableCell>
-                    <TableCell>
+                    <TableCell className="font-bold whitespace-normal">Какие аккаунты вступили</TableCell>
+                    <TableCell className="whitespace-normal">
                       {selectedGroup.joinedAccounts.length ? (
                         selectedGroup.joinedAccounts.map((account) => (
-                          <Badge key={account} className="mr-1">{account}</Badge>
+                          <Badge key={account} className="mr-1 whitespace-normal">{account}</Badge>
                         ))
                       ) : (
                         '-'
@@ -436,14 +456,14 @@ export default function GroupsPage() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-bold">Всего лидов / Потенциальных лидов</TableCell>
-                    <TableCell>
+                    <TableCell className="font-bold whitespace-normal">Всего лидов / Потенциальных лидов</TableCell>
+                    <TableCell className="whitespace-normal">
                       {selectedGroup.analysisResult?.total_leads_count ?? '-'} / {selectedGroup.analysisResult?.total_potential_requests !== undefined ? Number(selectedGroup.analysisResult.total_potential_requests).toFixed(2) : '-'}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-bold">Анализ</TableCell>
-                    <TableCell>
+                    <TableCell className="font-bold whitespace-normal">Анализ</TableCell>
+                    <TableCell className="whitespace-normal">
                       {analysisSelections[selectedGroup.id] ? (analysisSelections[selectedGroup.id] === "start" ? "Запустить анализ" : "Остановить анализ") : "Не выбрано"}
                     </TableCell>
                   </TableRow>
@@ -451,8 +471,8 @@ export default function GroupsPage() {
                     const displayKey = key === "spam" ? "Спам" : key === "other" ? "Другое" : key === "freelancers" ? "Фрилансеры" : key;
                     return (
                       <TableRow key={key}>
-                        <TableCell className="font-bold">{displayKey}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-bold whitespace-normal">{displayKey}</TableCell>
+                        <TableCell className="whitespace-normal">
                           {selectedGroup.analysisResult?.requests_count[key]} / {Number(selectedGroup.analysisResult?.potential_requests[key] || 0).toFixed(2)}
                         </TableCell>
                       </TableRow>
