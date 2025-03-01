@@ -36,6 +36,8 @@ interface Group {
   }
   location?: string
   parsing: "done" | "in progress" | "not started"
+  totalPrice?: number
+  analysisTimeSeconds?: number
 }
 
 export default function GroupsPage() {
@@ -120,7 +122,9 @@ export default function GroupsPage() {
               joinedAccounts: group.joined_accounts || [],
               analysisResult: group.analysis_result ? group.analysis_result : { requests_count: {}, potential_requests: {}, total_leads_count: 0, total_potential_requests: 0 },
               location: group.join_link,
-              parsing: group.parsing === true ? "done" : (group.parsing === "in progress" ? "in progress" : "not started")
+              parsing: group.parsing === true ? "done" : (group.parsing === "in progress" ? "in progress" : "not started"),
+              totalPrice: group.analysis_result?.total_price,
+              analysisTimeSeconds: group.analysis_result?.analysis_time_seconds
             };
           });
           setGroups(transformed);
@@ -459,6 +463,18 @@ export default function GroupsPage() {
                     <TableCell className="font-bold whitespace-normal">Всего лидов / Потенциальных лидов</TableCell>
                     <TableCell className="whitespace-normal">
                       {selectedGroup.analysisResult?.total_leads_count ?? '-'} / {selectedGroup.analysisResult?.total_potential_requests !== undefined ? Number(selectedGroup.analysisResult.total_potential_requests).toFixed(2) : '-'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-bold whitespace-normal">Стоимость анализа</TableCell>
+                    <TableCell className="whitespace-normal">
+                      {selectedGroup.totalPrice !== undefined ? Number(selectedGroup.totalPrice).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "$" : '-'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-bold whitespace-normal">Время анализа</TableCell>
+                    <TableCell className="whitespace-normal">
+                      {selectedGroup.analysisTimeSeconds !== undefined ? Number(selectedGroup.analysisTimeSeconds).toFixed(0) + " сек" : '-'}
                     </TableCell>
                   </TableRow>
                   <TableRow>
