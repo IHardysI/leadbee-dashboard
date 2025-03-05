@@ -12,76 +12,33 @@ import {
 } from '@/components/ui/table';
 import { Check, Ban } from 'lucide-react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { getLeadsList } from '@/components/shared/api/analytics';
 
 interface Lead {
   id: string;
   category: string;
-  sentAt: string;
-  preview: string;
-  sentTo: string;
-  sentToName: string;
-  status: 'pending' | 'sent' | 'spam';
-  tags: string[];
+  chat_title: string;
+  price: number;
+  updatedAt: string;
+  message: string;
+  tags?: string[];
 }
 
 export default function LeadsPage() {
-  const leads: Lead[] = [
-    {
-      id: '1',
-      category: 'LeadBee',
-      sentAt: '04.12.2024 07:59',
-      preview:
-        'Ищу дизайнера для создания инфографики для маркетплейсов (Озон и ВБ). Писать в ЛС',
-      sentTo: 'Фриланс.Ru',
-      sentToName: 'Александр Иванов',
-      status: 'sent',
-      tags: ['action7', 'balanceyourmind'],
-    },
-    {
-      id: '2',
-      category: 'LeadBee',
-      sentAt: '04.12.2024 08:00',
-      preview:
-        'Здравствуйте! Окажу услуги по Сео оптимизации карточки, анализу, настройке рекламы, стратегии вывода в топ, консультации, ведение лк. Опыт 3 года.',
-      sentTo: 'Поставщики Wildberries',
-      sentToName: 'Мария Петрова',
-      status: 'pending',
-      tags: ['seo', 'marketing'],
-    },
-    {
-      id: '3',
-      category: 'LeadBee',
-      sentAt: '04.12.2024 08:15',
-      preview:
-        'Приветики 😊 😊 😊 😊 Мне срочно нужна помощь с ремонтом! Всё легко и просто но справится одна не могу! Заплачу 15.000 тысяч (могу больше) 💰 Отпишите мне, расскажу подробности!',
-      sentTo: 'Работа в Сочи',
-      sentToName: 'Ольга Сидорова',
-      status: 'pending',
-      tags: ['repair', 'urgent'],
-    },
-    {
-      id: '4',
-      category: 'LeadBee',
-      sentAt: '04.12.2024 08:30',
-      preview:
-        'Требуется менеджер для ведения аккаунтов в соцсетях. Опыт работы от 1 года.',
-      sentTo: 'HH.ru',
-      sentToName: 'Дмитрий Козлов',
-      status: 'sent',
-      tags: ['social', 'manager'],
-    },
-    {
-      id: '5',
-      category: 'LeadBee',
-      sentAt: '04.12.2024 09:00',
-      preview:
-        'Ищем копирайтера для написания описаний товаров на маркетплейсах. Оплата за текст.',
-      sentTo: 'Авито Работа',
-      sentToName: 'Наталья Кузнецова',
-      status: 'pending',
-      tags: ['copywriting', 'marketplace'],
-    },
-  ];
+  const [leads, setLeads] = useState<Lead[]>([]);
+
+  useEffect(() => {
+    const fetchLeads = async () => {
+      try {
+        const result = await getLeadsList();
+        setLeads(result.leads);
+      } catch (err) {
+        console.error('Error fetching leads:', err);
+      }
+    };
+    fetchLeads();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -101,13 +58,13 @@ export default function LeadsPage() {
             <TableBody>
               {leads.map((lead) => (
                 <TableRow key={lead.id}>
-                  <TableCell>{lead.category}</TableCell>
+                  <TableCell><Badge variant="secondary" className="inline-flex items-center whitespace-normal">{lead.category}</Badge></TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {lead.sentAt}
+                    {new Date(lead.updatedAt).toLocaleString('ru-RU')}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
-                      <p className="text-sm">{lead.preview}</p>
+                      <p className="text-sm">{lead.message}</p>
                       <Link
                         href="#"
                         className="text-sm text-blue-500 hover:text-blue-700">
@@ -115,13 +72,7 @@ export default function LeadsPage() {
                       </Link>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <Link
-                      href="#"
-                      className="text-blue-500 hover:text-blue-700">
-                      {lead.sentToName}
-                    </Link>
-                  </TableCell>
+                  <TableCell>-</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button
@@ -137,16 +88,18 @@ export default function LeadsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-1 flex-wrap">
-                      {lead.tags.map((tag) => (
-                        <Badge
-                          key={tag}
-                          variant="secondary"
-                          className="bg-gray-100">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
+                    {lead.tags && lead.tags.length > 0 ? (
+                      <div className="flex gap-1 flex-wrap">
+                        {lead.tags.map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="secondary"
+                            className="bg-gray-100">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : '-'}
                   </TableCell>
                 </TableRow>
               ))}

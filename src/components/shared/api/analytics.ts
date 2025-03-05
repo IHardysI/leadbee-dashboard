@@ -60,3 +60,13 @@ export const analyzeGroup = async (groupIds: string[], categoryIds: string[]): P
   });
   return response.data;
 };
+
+/**
+ * Retrieves a list of leads with the specified limit and offset.
+ */
+export const getLeadsList = async (limit: number = 3, offset: number = 1): Promise<any> => {
+  const response = await axios.get(`${API_BASE_URL}/lead/list`, {
+    params: { limit, offset },
+  });
+  return response.data;
+};
