@@ -14,6 +14,7 @@ import { Check, Ban } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { getLeadsList } from '@/components/shared/api/analytics';
+import PaginationUniversal from '@/components/widgets/PaginationUniversal';
 
 interface Lead {
   id: string;
@@ -27,6 +28,10 @@ interface Lead {
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const leadsPerPage = 15;
+  const [displayMode, setDisplayMode] = useState<'pagination' | 'loadmore'>('pagination');
+  const [loadedCount, setLoadedCount] = useState(leadsPerPage);
 
   useEffect(() => {
     const fetchLeads = async () => {
@@ -39,6 +44,22 @@ export default function LeadsPage() {
     };
     fetchLeads();
   }, []);
+
+  const totalPages = Math.ceil(leads.length / leadsPerPage);
+  const displayedLeads = displayMode === 'loadmore' 
+    ? leads.slice(0, loadedCount)
+    : leads.slice((currentPage - 1) * leadsPerPage, currentPage * leadsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setDisplayMode('pagination');
+    setCurrentPage(page);
+    setLoadedCount(leadsPerPage);
+  };
+
+  const handleLoadMore = () => {
+    setDisplayMode('loadmore');
+    setLoadedCount(loadedCount + leadsPerPage);
+  };
 
   return (
     <div className="space-y-6">
@@ -56,7 +77,7 @@ export default function LeadsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {leads.map((lead) => (
+              {displayedLeads.map((lead: Lead) => (
                 <TableRow key={lead.id}>
                   <TableCell><Badge variant="secondary" className="inline-flex items-center whitespace-normal">{lead.category}</Badge></TableCell>
                   <TableCell className="text-muted-foreground text-sm">
@@ -90,7 +111,7 @@ export default function LeadsPage() {
                   <TableCell>
                     {lead.tags && lead.tags.length > 0 ? (
                       <div className="flex gap-1 flex-wrap">
-                        {lead.tags.map((tag) => (
+                        {lead.tags.map((tag: string) => (
                           <Badge
                             key={tag}
                             variant="secondary"
@@ -107,6 +128,15 @@ export default function LeadsPage() {
           </Table>
         </div>
       </div>
+      {totalPages > 1 && (
+        <PaginationUniversal 
+          currentPage={currentPage} 
+          totalPages={totalPages} 
+          onPageChange={handlePageChange}
+          onLoadMore={handleLoadMore}
+          showLoadMore={displayedLeads.length < leads.length}
+        />
+      )}
     </div>
   );
 }

@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Checkbox } from "@/components/ui/checkbox"
 import { getCategoriesList } from "@/components/shared/api/categories"
 import { analyzeGroup } from "@/components/shared/api/analytics"
-import Pagination from "@/components/ui/pagination"
+import PaginationUniversal from '@/components/widgets/PaginationUniversal'
 
 interface Group {
   id: string
@@ -54,7 +54,7 @@ export default function GroupsPage() {
   const [analysisCategories, setAnalysisCategories] = useState<any[]>([]);
   const [selectedAnalysisCategories, setSelectedAnalysisCategories] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const groupsPerPage = 20;
+  const groupsPerPage = 15;
   const [currentPage, setCurrentPage] = useState(1);
   const [navigationMode, setNavigationMode] = useState<'pagination' | 'loadmore'>('pagination');
   const [loadedCount, setLoadedCount] = useState(groupsPerPage);
@@ -70,22 +70,6 @@ export default function GroupsPage() {
     : filteredGroups.slice((currentPage - 1) * groupsPerPage, currentPage * groupsPerPage);
 
   const [analysisSelections, setAnalysisSelections] = useState<Record<string, 'start'|'stop' | null>>({});
-
-  const getPaginationItems = (): (number | string)[] => {
-    if (totalPages <= 10) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    if (currentPage <= 6) {
-      // Show first 8 pages, then dots, then last page
-      return [...Array.from({ length: 8 }, (_, i) => i + 1), '...', totalPages];
-    } else if (currentPage >= totalPages - 5) {
-      // Show first page, then dots, then last 8 pages
-      return [1, '...', ...Array.from({ length: 8 }, (_, i) => totalPages - 7 + i)];
-    } else {
-      // Show first page, dots,  currentPage-2, -1, current, +1, +2, dots, last page
-      return [1, '...', currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2, '...', totalPages];
-    }
-  };
 
   const handlePageChange = (page: number) => {
     setNavigationMode('pagination');
@@ -366,27 +350,18 @@ export default function GroupsPage() {
         </Table>
       </div>
 
-      {/* Pagination controls */}
+      {/* Replace the Pagination section */}
       {totalPages > 1 && (
-        <Pagination 
+        <PaginationUniversal 
           currentPage={currentPage} 
           totalPages={totalPages} 
           onPageChange={handlePageChange}
+          onLoadMore={() => {
+            setNavigationMode('loadmore');
+            setLoadedCount(loadedCount + groupsPerPage);
+          }}
+          showLoadMore={displayedGroups.length < filteredGroups.length}
         />
-      )}
-
-      {/* Load More button - always visible if there are more groups */}
-      {displayedGroups.length < filteredGroups.length && (
-        <div className="flex justify-center mt-4">
-          <Button
-            onClick={() => {
-              setNavigationMode('loadmore');
-              setLoadedCount(loadedCount + groupsPerPage);
-            }}
-          >
-            Загрузить ещё
-          </Button>
-        </div>
       )}
 
       {selectedGroup && (
