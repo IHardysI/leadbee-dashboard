@@ -156,6 +156,8 @@ export default function GroupsPage() {
   const handleStartAnalysis = async (group: Group) => {
     // Optimistically update the group's parsing status
     setGroups(prev => prev.map(g => g.id === group.id ? { ...g, parsing: "done" } : g));
+    // Also update the selectedGroup if it is the same group
+    setSelectedGroup(prev => prev && prev.id === group.id ? { ...prev, parsing: "done" } : prev);
     try {
       await changeParsingStatus(group.id, true);
     } catch (error) {
@@ -167,6 +169,8 @@ export default function GroupsPage() {
   const handleStopAnalysis = async (group: Group) => {
     // Optimistically update the group's parsing status
     setGroups(prev => prev.map(g => g.id === group.id ? { ...g, parsing: "not started" } : g));
+    // Also update the selectedGroup if it is the same group
+    setSelectedGroup(prev => prev && prev.id === group.id ? { ...prev, parsing: "not started" } : prev);
     try {
       await changeParsingStatus(group.id, false);
     } catch (error) {
@@ -321,44 +325,26 @@ export default function GroupsPage() {
                   {`${group.analysisResult?.total_leads_count ?? '-'} / ${group.analysisResult?.total_potential_requests !== undefined ? Number(group.analysisResult.total_potential_requests).toFixed(2) : '-'}`}
                 </TableCell>
                 <TableCell className="whitespace-normal">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="icon"
-                      variant={group.parsing === "done" ? "default" : "outline"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStartAnalysis(group);
-                      }}
-                      className={`p-2 rounded-full transition-transform duration-200 ${group.parsing === "done" ? "scale-110" : ""}`}
-                    >
-                      <span className="sr-only">Запустить анализ</span>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        className={`h-4 w-4 fill-current ${group.parsing === "done" ? "text-accent" : "text-black"}`}
-                      >
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant={group.parsing !== "done" ? "default" : "outline"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStopAnalysis(group);
-                      }}
-                      className={`p-2 rounded-full transition-transform duration-200 ${group.parsing !== "done" ? "scale-110" : ""}`}
-                    >
-                      <span className="sr-only">Остановить анализ</span>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        className={`h-4 w-4 fill-current ${group.parsing !== "done" ? "text-accent" : "text-black"}`}
-                      >
+                  <Button
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      group.parsing === "done" ? handleStopAnalysis(group) : handleStartAnalysis(group);
+                    }}
+                    variant={group.parsing === "done" ? "default" : "outline"}
+                    className={`p-2 rounded-full transition-transform duration-200 ${group.parsing === "done" ? "scale-110" : ""}`}
+                  >
+                    <span className="sr-only">{group.parsing === "done" ? "Остановить анализ" : "Запустить анализ"}</span>
+                    {group.parsing === "done" ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 fill-current text-accent">
                         <rect x="6" y="6" width="12" height="12" rx="2" />
                       </svg>
-                    </Button>
-                  </div>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 fill-current text-black">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -471,7 +457,26 @@ export default function GroupsPage() {
                   <TableRow>
                     <TableCell className="font-bold whitespace-normal">Анализ</TableCell>
                     <TableCell className="whitespace-normal">
-                      {selectedGroup.parsing === "done" ? "Запустить анализ" : "Остановить анализ"}
+                      <Button
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectedGroup.parsing === "done" ? handleStopAnalysis(selectedGroup) : handleStartAnalysis(selectedGroup);
+                        }}
+                        variant={selectedGroup.parsing === "done" ? "default" : "outline"}
+                        className={`p-2 rounded-full transition-transform duration-200 ${selectedGroup.parsing === "done" ? "scale-110" : ""}`}
+                      >
+                        <span className="sr-only">{selectedGroup.parsing === "done" ? "Остановить анализ" : "Запустить анализ"}</span>
+                        {selectedGroup.parsing === "done" ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 fill-current text-accent">
+                            <rect x="6" y="6" width="12" height="12" rx="2" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 fill-current text-black">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        )}
+                      </Button>
                     </TableCell>
                   </TableRow>
                   {Object.keys(selectedGroup.analysisResult?.requests_count || {}).map((key) => {

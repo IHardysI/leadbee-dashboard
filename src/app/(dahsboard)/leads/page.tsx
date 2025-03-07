@@ -92,16 +92,11 @@ export default function LeadsPage() {
                 <TableRow key={lead.id}>
                   <TableCell><Badge variant="secondary" className="inline-flex items-center whitespace-normal">{lead.category}</Badge></TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {new Date(lead.updatedAt).toLocaleString('ru-RU')}
+                    {lead.updatedAt ? new Date(lead.updatedAt).toLocaleString('ru-RU') : '-'}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       <p className="text-sm">{lead.message}</p>
-                      <Link
-                        href="#"
-                        className="text-sm text-blue-500 hover:text-blue-700">
-                        Вступить в чат
-                      </Link>
                     </div>
                   </TableCell>
                   <TableCell>-</TableCell>
