@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Check, Ban } from 'lucide-react';
+import { Check, Ban, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { getLeadsList } from '@/components/shared/api/analytics';
@@ -32,6 +32,7 @@ export default function LeadsPage() {
   const leadsPerPage = 15;
   const [displayMode, setDisplayMode] = useState<'pagination' | 'loadmore'>('pagination');
   const [loadedCount, setLoadedCount] = useState(leadsPerPage);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchLeads = async () => {
@@ -40,10 +41,20 @@ export default function LeadsPage() {
         setLeads(result.leads);
       } catch (err) {
         console.error('Error fetching leads:', err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchLeads();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="animate-spin h-10 w-10 text-muted-foreground" />
+      </div>
+    );
+  }
 
   const totalPages = Math.ceil(leads.length / leadsPerPage);
   const displayedLeads = displayMode === 'loadmore' 

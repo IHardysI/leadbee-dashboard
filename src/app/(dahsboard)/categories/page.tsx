@@ -4,11 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { PlusCircle, Search, Pencil } from "lucide-react"
+import { PlusCircle, Search, Pencil, Loader2 } from "lucide-react"
 import { getCategoriesList, upsertCategory } from "@/components/shared/api/categories"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import Pagination from "@/components/ui/pagination"
+import PaginationUniversal from "@/components/widgets/PaginationUniversal"
 
 export default function CategoriesPage() {
   const { toast } = useToast();
@@ -23,7 +23,7 @@ export default function CategoriesPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Pagination state
-  const categoriesPerPage = 20;
+  const categoriesPerPage = 15;
   const [currentPage, setCurrentPage] = useState(1);
   const [navigationMode, setNavigationMode] = useState<'pagination' | 'loadmore'>('pagination');
   const [loadedCount, setLoadedCount] = useState(categoriesPerPage);
@@ -40,6 +40,15 @@ export default function CategoriesPage() {
       }
     })();
   }, []);
+
+  // If loading, return centered spinner
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="animate-spin h-10 w-10 text-muted-foreground" />
+      </div>
+    );
+  }
 
   const filteredCategories = categories.filter((category) =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -74,58 +83,45 @@ export default function CategoriesPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div>Loading...</div>
-      ) : (
-        <div className="rounded-md border">
-          <Table className="table-fixed w-full">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[400px] whitespace-normal">Название категории</TableHead>
-                <TableHead className="whitespace-normal">Количество сообщений в категории</TableHead>
-                <TableHead className="whitespace-normal">Статус (Отслеживается / Не отслеживается)</TableHead>
-                <TableHead className="w-16 whitespace-normal">Редактировать</TableHead>
+      <div className="rounded-md border overflow-x-hidden">
+        <Table className="table-fixed w-full">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[30%] whitespace-normal break-words">Название категории</TableHead>
+              <TableHead className="w-[25%] whitespace-normal break-words">Количество сообщений в категории</TableHead>
+              <TableHead className="w-[30%] whitespace-normal break-words">Статус (Отслеживается / Не отслеживается)</TableHead>
+              <TableHead className="w-[15%] whitespace-normal break-words">Редактировать</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {displayedCategories.map((category) => (
+              <TableRow key={category.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setSelectedCategory(category)}>
+                <TableCell className="whitespace-normal break-words">{category.name}</TableCell>
+                <TableCell className="whitespace-normal break-words">-</TableCell>
+                <TableCell className="whitespace-normal break-words">-</TableCell>
+                <TableCell className="whitespace-normal break-words" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" onClick={() => { setEditCategory(category); setEditCategoryPrompt(category.prompt || ''); }}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {displayedCategories.map((category) => (
-                <TableRow key={category.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setSelectedCategory(category)}>
-                  <TableCell className="whitespace-normal">{category.name}</TableCell>
-                  <TableCell className="whitespace-normal">-</TableCell>
-                  <TableCell className="whitespace-normal">-</TableCell>
-                  <TableCell className="whitespace-normal" onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" onClick={() => { setEditCategory(category); setEditCategoryPrompt(category.prompt || ''); }}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
       {/* Pagination controls */}
       {totalPages > 1 && (
-        <Pagination 
+        <PaginationUniversal 
           currentPage={currentPage} 
           totalPages={totalPages}
           onPageChange={handlePageChange}
+          onLoadMore={() => {
+            setNavigationMode('loadmore');
+            setLoadedCount(loadedCount + categoriesPerPage);
+          }}
+          showLoadMore={displayedCategories.length < filteredCategories.length}
         />
-      )}
-
-      {/* Load More button */}
-      {displayedCategories.length < filteredCategories.length && (
-        <div className="flex justify-center mt-4">
-          <Button
-            onClick={() => {
-              setNavigationMode('loadmore');
-              setLoadedCount(loadedCount + categoriesPerPage);
-            }}
-          >
-            Загрузить ещё
-          </Button>
-        </div>
       )}
 
       {/* Dialog for category details */}
@@ -140,26 +136,26 @@ export default function CategoriesPage() {
               <Table className="table-fixed w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Параметр</TableHead>
-                    <TableHead>Значение</TableHead>
+                    <TableHead className="w-[40%] whitespace-normal break-words">Параметр</TableHead>
+                    <TableHead className="w-[60%] whitespace-normal break-words">Значение</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-bold whitespace-normal">Название категории</TableCell>
-                    <TableCell className="whitespace-normal">{selectedCategory.name}</TableCell>
+                    <TableCell className="font-bold whitespace-normal break-words">Название категории</TableCell>
+                    <TableCell className="whitespace-normal break-words">{selectedCategory.name}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-bold whitespace-normal">Количество сообщений в категории</TableCell>
-                    <TableCell className="whitespace-normal">-</TableCell>
+                    <TableCell className="font-bold whitespace-normal break-words">Количество сообщений в категории</TableCell>
+                    <TableCell className="whitespace-normal break-words">-</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-bold whitespace-normal">Статус</TableCell>
-                    <TableCell className="whitespace-normal">-</TableCell>
+                    <TableCell className="font-bold whitespace-normal break-words">Статус</TableCell>
+                    <TableCell className="whitespace-normal break-words">-</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-bold whitespace-normal">Промпт</TableCell>
-                    <TableCell className="whitespace-normal">{selectedCategory.prompt}</TableCell>
+                    <TableCell className="font-bold whitespace-normal break-words">Промпт</TableCell>
+                    <TableCell className="whitespace-normal break-words">{selectedCategory.prompt}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

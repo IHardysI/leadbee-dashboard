@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { PlusCircle, UserPlus, Search, Pencil, CheckCircle, XCircle, SlidersHorizontal } from "lucide-react"
+import { PlusCircle, UserPlus, Search, Pencil, CheckCircle, XCircle, SlidersHorizontal, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { getGroupsList, createGroup } from "@/components/shared/api/groups"
+import { getGroupsList, createGroup, changeParsingStatus } from "@/components/shared/api/groups"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -68,8 +68,6 @@ export default function GroupsPage() {
   const displayedGroups = navigationMode === 'loadmore'
     ? filteredGroups.slice(0, loadedCount)
     : filteredGroups.slice((currentPage - 1) * groupsPerPage, currentPage * groupsPerPage);
-
-  const [analysisSelections, setAnalysisSelections] = useState<Record<string, 'start'|'stop' | null>>({});
 
   const handlePageChange = (page: number) => {
     setNavigationMode('pagination');
@@ -155,12 +153,26 @@ export default function GroupsPage() {
     }
   };
 
-  const handleStartAnalysis = (group: Group) => {
-    setAnalysisSelections(prev => ({ ...prev, [group.id]: 'start' }));
+  const handleStartAnalysis = async (group: Group) => {
+    // Optimistically update the group's parsing status
+    setGroups(prev => prev.map(g => g.id === group.id ? { ...g, parsing: "done" } : g));
+    try {
+      await changeParsingStatus(group.id, true);
+    } catch (error) {
+      console.error("Error starting analysis for group", group.id, error);
+      // Optionally revert update if needed
+    }
   };
 
-  const handleStopAnalysis = (group: Group) => {
-    setAnalysisSelections(prev => ({ ...prev, [group.id]: 'stop' }));
+  const handleStopAnalysis = async (group: Group) => {
+    // Optimistically update the group's parsing status
+    setGroups(prev => prev.map(g => g.id === group.id ? { ...g, parsing: "not started" } : g));
+    try {
+      await changeParsingStatus(group.id, false);
+    } catch (error) {
+      console.error("Error stopping analysis for group", group.id, error);
+      // Optionally revert update if needed
+    }
   };
 
   const handleAddGroup = async () => {
@@ -191,7 +203,11 @@ export default function GroupsPage() {
   };
 
   if (loading) {
-    return <div>Загрузка групп...</div>
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="animate-spin h-10 w-10 text-muted-foreground" />
+      </div>
+    );
   }
 
   return (
@@ -308,36 +324,36 @@ export default function GroupsPage() {
                   <div className="flex items-center gap-2">
                     <Button
                       size="icon"
-                      variant={analysisSelections[group.id] === "start" ? "default" : "outline"}
+                      variant={group.parsing === "done" ? "default" : "outline"}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleStartAnalysis(group);
                       }}
-                      className={`p-2 rounded-full transition-transform duration-200 ${analysisSelections[group.id] === "start" ? "scale-110" : ""}`}
+                      className={`p-2 rounded-full transition-transform duration-200 ${group.parsing === "done" ? "scale-110" : ""}`}
                     >
                       <span className="sr-only">Запустить анализ</span>
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"
-                        className={`h-4 w-4 fill-current ${analysisSelections[group.id] === "start" ? "text-accent" : "text-black"}`}
+                        className={`h-4 w-4 fill-current ${group.parsing === "done" ? "text-accent" : "text-black"}`}
                       >
                         <path d="M8 5v14l11-7z" />
                       </svg>
                     </Button>
                     <Button
                       size="icon"
-                      variant={analysisSelections[group.id] === "stop" ? "default" : "outline"}
+                      variant={group.parsing !== "done" ? "default" : "outline"}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleStopAnalysis(group);
                       }}
-                      className={`p-2 rounded-full transition-transform duration-200 ${analysisSelections[group.id] === "stop" ? "scale-110" : ""}`}
+                      className={`p-2 rounded-full transition-transform duration-200 ${group.parsing !== "done" ? "scale-110" : ""}`}
                     >
                       <span className="sr-only">Остановить анализ</span>
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"
-                        className={`h-4 w-4 fill-current ${analysisSelections[group.id] === "stop" ? "text-accent" : "text-black"}`}
+                        className={`h-4 w-4 fill-current ${group.parsing !== "done" ? "text-accent" : "text-black"}`}
                       >
                         <rect x="6" y="6" width="12" height="12" rx="2" />
                       </svg>
@@ -455,7 +471,7 @@ export default function GroupsPage() {
                   <TableRow>
                     <TableCell className="font-bold whitespace-normal">Анализ</TableCell>
                     <TableCell className="whitespace-normal">
-                      {analysisSelections[selectedGroup.id] ? (analysisSelections[selectedGroup.id] === "start" ? "Запустить анализ" : "Остановить анализ") : "Не выбрано"}
+                      {selectedGroup.parsing === "done" ? "Запустить анализ" : "Остановить анализ"}
                     </TableCell>
                   </TableRow>
                   {Object.keys(selectedGroup.analysisResult?.requests_count || {}).map((key) => {
