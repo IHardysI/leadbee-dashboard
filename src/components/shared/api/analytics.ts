@@ -68,3 +68,15 @@ export const getLeadsList = async (): Promise<any> => {
   const response = await axios.get(`${API_BASE_URL}/lead/list`);
   return response.data;
 };
+
+// Inserted function to update lead moderation status
+/**
+ * Updates the moderation status for a lead.
+ * moderation_status может быть один из ["not_approved", "spam", "approved", "not_reviewed"]
+ */
+export const updateModerationStatus = async (lead_id: string, moderation_status: "not_approved" | "spam" | "approved" | "not_reviewed"): Promise<any> => {
+  const response = await axios.put(`${API_BASE_URL}/lead/moderation_status`, { lead_id, moderation_status }, {
+    headers: { "Content-Type": "application/json" }
+  });
+  return response.data;
+};
