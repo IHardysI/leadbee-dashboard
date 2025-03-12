@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { PlusCircle, UserPlus, Search, Pencil, CheckCircle, XCircle, SlidersHorizontal, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { getGroupsList, createGroup, changeParsingStatus } from "@/components/shared/api/groups"
+import { getGroupsList, createGroup, changeParsingStatus, getGroupDetails } from "@/components/shared/api/groups"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -40,6 +40,28 @@ interface Group {
   analysisTimeSeconds?: number
 }
 
+interface DetailedGroup {
+  id: string;
+  title: string;
+  telegram_id: number;
+  join_link: string;
+  parsing: boolean;
+  analysis_status: string;
+  analysis_result?: {
+    analysis_range_days?: number;
+    total_messages_count?: number;
+    total_price?: number;
+    requests_count?: Record<string, number>;
+    potential_requests?: Record<string, number>;
+    analysis_time_seconds?: number;
+    total_leads_count?: number;
+    total_potential_requests?: number;
+  };
+  joined_accounts?: string[];
+  participants_parsing_status?: string;
+  participants?: string[];
+}
+
 export default function GroupsPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -56,29 +78,28 @@ export default function GroupsPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const groupsPerPage = 15;
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [navigationMode, setNavigationMode] = useState<'pagination' | 'loadmore'>('pagination');
-  const [loadedCount, setLoadedCount] = useState(groupsPerPage);
+
+  const [detailedGroup, setDetailedGroup] = useState<DetailedGroup | null>(null);
 
   const filteredGroups = groups.filter((group) =>
     group.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalPages = Math.ceil(filteredGroups.length / groupsPerPage);
-
-  const displayedGroups = navigationMode === 'loadmore'
-    ? filteredGroups.slice(0, loadedCount)
-    : filteredGroups.slice((currentPage - 1) * groupsPerPage, currentPage * groupsPerPage);
+  const computedTotalPages = totalCount ? Math.ceil(totalCount / groupsPerPage) : 1;
+  const displayedGroups = filteredGroups;
 
   const handlePageChange = (page: number) => {
     setNavigationMode('pagination');
     setCurrentPage(page);
-    setLoadedCount(groupsPerPage);
   };
 
   useEffect(() => {
     async function fetchGroups() {
+      setLoading(true);
       try {
-        const response = await getGroupsList();
+        const response = await getGroupsList(currentPage, groupsPerPage);
         if(response.status === "success") {
           const transformed = response.groups.map((group: any) => {
             const requestsCount = {
@@ -109,7 +130,21 @@ export default function GroupsPage() {
               analysisTimeSeconds: group.analysis_result?.analysis_time_seconds
             };
           });
-          setGroups(transformed);
+          if(navigationMode === 'pagination') {
+            setGroups(transformed);
+          } else {
+            setGroups(prev => {
+              const newGroups = transformed.filter(
+                (group: any) => !prev.some((existing: any) => existing.id === group.id)
+              );
+              return [...prev, ...newGroups];
+            });
+          }
+          if(response.totalPages) {
+            setTotalCount(response.totalPages * groupsPerPage);
+          } else if(response.total_count !== undefined) {
+            setTotalCount(response.total_count);
+          }
         } else {
           console.error('API returned error status:', response);
         }
@@ -120,7 +155,7 @@ export default function GroupsPage() {
       }
     }
     fetchGroups();
-  }, []);
+  }, [currentPage, groupsPerPage, navigationMode, searchTerm]);
 
   useEffect(() => {
     if (isAnalysisDialogOpen && analysisCategories.length === 0) {
@@ -206,6 +241,28 @@ export default function GroupsPage() {
     }
   };
 
+  const handleGroupSelect = async (group: Group) => {
+    setSelectedGroup(group);
+    
+    try {
+      // Fetch detailed group information
+      setLoading(true);
+      const response = await getGroupDetails(group.id);
+      if (response.group) {
+        setDetailedGroup(response.group);
+      }
+    } catch (error) {
+      console.error("Error fetching group details:", error);
+      toast({ 
+        title: "Ошибка", 
+        description: "Не удалось загрузить детальную информацию о группе", 
+        variant: "destructive" 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -270,7 +327,7 @@ export default function GroupsPage() {
           </TableHeader>
           <TableBody>
             {displayedGroups.map((group) => (
-              <TableRow key={group.id} onClick={() => setSelectedGroup(group)} className="cursor-pointer hover:bg-gray-50">
+              <TableRow key={group.id} onClick={() => handleGroupSelect(group)} className="cursor-pointer hover:bg-gray-50">
                 <TableCell onClick={(e) => e.stopPropagation()} className="align-middle whitespace-normal">
                   <div className="flex items-center justify-center h-full">
                     <Checkbox checked={selectedGroupIds.includes(group.id)} onCheckedChange={(checked: boolean) => handleGroupSelectionChange(group.id, checked)} />
@@ -352,22 +409,21 @@ export default function GroupsPage() {
         </Table>
       </div>
 
-      {/* Replace the Pagination section */}
-      {totalPages > 1 && (
+      {totalCount > 0 && (
         <PaginationUniversal 
           currentPage={currentPage} 
-          totalPages={totalPages} 
+          totalPages={computedTotalPages}
           onPageChange={handlePageChange}
           onLoadMore={() => {
             setNavigationMode('loadmore');
-            setLoadedCount(loadedCount + groupsPerPage);
+            setCurrentPage(prev => prev + 1);
           }}
-          showLoadMore={displayedGroups.length < filteredGroups.length}
+          showLoadMore={currentPage < computedTotalPages}
         />
       )}
 
       {selectedGroup && (
-        <Dialog open={true} onOpenChange={() => setSelectedGroup(null)}>
+        <Dialog open={true} onOpenChange={() => { setSelectedGroup(null); setDetailedGroup(null); }}>
           <DialogContent className="!w-[80vw] !max-w-[80vw]">
             <DialogHeader>
               <DialogTitle>{selectedGroup.name}</DialogTitle>
@@ -382,6 +438,26 @@ export default function GroupsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  <TableRow>
+                    <TableCell className="font-bold whitespace-normal">ID группы</TableCell>
+                    <TableCell className="whitespace-normal">{detailedGroup?.id || selectedGroup.id}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-bold whitespace-normal">Название</TableCell>
+                    <TableCell className="whitespace-normal">{detailedGroup?.title || selectedGroup.name}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-bold whitespace-normal">Telegram ID</TableCell>
+                    <TableCell className="whitespace-normal">{detailedGroup?.telegram_id || '-'}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-bold whitespace-normal">Ссылка</TableCell>
+                    <TableCell className="whitespace-normal">
+                      <Link href={detailedGroup?.join_link || selectedGroup.location || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 whitespace-normal">
+                        {detailedGroup?.join_link || selectedGroup.location || "-"}
+                      </Link>
+                    </TableCell>
+                  </TableRow>
                   <TableRow>
                     <TableCell className="font-bold whitespace-normal">Статус анализа</TableCell>
                     <TableCell className="whitespace-normal">
@@ -409,7 +485,7 @@ export default function GroupsPage() {
                   <TableRow>
                     <TableCell className="font-bold whitespace-normal">Сбор данных</TableCell>
                     <TableCell className="whitespace-normal">
-                      {selectedGroup.parsing === "done" ? (
+                      {(detailedGroup?.parsing === true || selectedGroup.parsing === "done") ? (
                         <Badge variant="secondary" className="bg-green-100 text-green-800 inline-flex items-center whitespace-normal">
                           <CheckCircle className="h-3 w-3" />
                         </Badge>
@@ -421,14 +497,22 @@ export default function GroupsPage() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-bold whitespace-normal">Количество подписчиков</TableCell>
-                    <TableCell className="whitespace-normal">{selectedGroup.subscribers}</TableCell>
+                    <TableCell className="font-bold whitespace-normal">Период анализа (дней)</TableCell>
+                    <TableCell className="whitespace-normal">
+                      {detailedGroup?.analysis_result?.analysis_range_days || '-'}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-bold whitespace-normal">Всего сообщений</TableCell>
+                    <TableCell className="whitespace-normal">
+                      {detailedGroup?.analysis_result?.total_messages_count || '-'}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-bold whitespace-normal">Какие аккаунты вступили</TableCell>
                     <TableCell className="whitespace-normal">
-                      {selectedGroup.joinedAccounts.length ? (
-                        selectedGroup.joinedAccounts.map((account) => (
+                      {(detailedGroup?.joined_accounts?.length || selectedGroup.joinedAccounts.length) ? (
+                        (detailedGroup?.joined_accounts || selectedGroup.joinedAccounts).map((account) => (
                           <Badge key={account} className="mr-1 whitespace-normal">{account}</Badge>
                         ))
                       ) : (
@@ -439,19 +523,19 @@ export default function GroupsPage() {
                   <TableRow>
                     <TableCell className="font-bold whitespace-normal">Всего лидов / Потенциальных лидов</TableCell>
                     <TableCell className="whitespace-normal">
-                      {selectedGroup.analysisResult?.total_leads_count ?? '-'} / {selectedGroup.analysisResult?.total_potential_requests !== undefined ? Number(selectedGroup.analysisResult.total_potential_requests).toFixed(2) : '-'}
+                      {`${detailedGroup?.analysis_result?.total_leads_count ?? selectedGroup.analysisResult?.total_leads_count ?? '-'} / ${detailedGroup?.analysis_result?.total_potential_requests !== undefined ? Number(detailedGroup.analysis_result.total_potential_requests).toFixed(2) : (selectedGroup.analysisResult?.total_potential_requests !== undefined ? Number(selectedGroup.analysisResult.total_potential_requests).toFixed(2) : '-')}`}
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-bold whitespace-normal">Стоимость анализа</TableCell>
                     <TableCell className="whitespace-normal">
-                      {selectedGroup.totalPrice !== undefined ? Number(selectedGroup.totalPrice).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "$" : '-'}
+                      {detailedGroup?.analysis_result?.total_price !== undefined ? Number(detailedGroup.analysis_result.total_price).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "$" : (selectedGroup.totalPrice !== undefined ? Number(selectedGroup.totalPrice).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "$" : '-')}
                     </TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-bold whitespace-normal">Время анализа</TableCell>
                     <TableCell className="whitespace-normal">
-                      {selectedGroup.analysisTimeSeconds !== undefined ? Number(selectedGroup.analysisTimeSeconds).toFixed(0) + " сек" : '-'}
+                      {detailedGroup?.analysis_result?.analysis_time_seconds !== undefined ? Number(detailedGroup.analysis_result.analysis_time_seconds).toFixed(0) + " сек" : (selectedGroup.analysisTimeSeconds !== undefined ? Number(selectedGroup.analysisTimeSeconds).toFixed(0) + " сек" : '-')}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -479,7 +563,57 @@ export default function GroupsPage() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                  {Object.keys(selectedGroup.analysisResult?.requests_count || {}).map((key) => {
+                  
+                  {/* Show detailed requests count */}
+                  <TableRow>
+                    <TableCell colSpan={2} className="bg-gray-100 font-bold text-center">Запросы и потенциальные лиды</TableCell>
+                  </TableRow>
+                  
+                  {detailedGroup?.analysis_result?.requests_count && Object.keys(detailedGroup.analysis_result.requests_count).map((key) => {
+                    const value = detailedGroup.analysis_result?.requests_count?.[key] || 0;
+                    const potentialValue = detailedGroup.analysis_result?.potential_requests?.[key] || 0;
+                    const displayKey = key
+                      .replace('ASK_FOR_ADVICE', 'Запрос совета')
+                      .replace('Looking_for_something_job_offer', 'Поиск работы')
+                      .replace('Selling_something', 'Продажа')
+                      .replace('From_moderator', 'От модератора')
+                      .replace('Other', 'Другое')
+                      .replace(/\|/g, ' → ');
+                    
+                    return (
+                      <TableRow key={key}>
+                        <TableCell className="font-bold whitespace-normal break-words">
+                          {displayKey}
+                        </TableCell>
+                        <TableCell className="whitespace-normal">
+                          {value} / {Number(potentialValue).toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  
+                  {/* Show participants information if available */}
+                  {detailedGroup?.participants && detailedGroup.participants.length > 0 && (
+                    <>
+                      <TableRow>
+                        <TableCell colSpan={2} className="bg-gray-100 font-bold text-center">Участники группы ({detailedGroup.participants.length})</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell colSpan={2} className="whitespace-normal">
+                          <div className="flex flex-wrap gap-1 max-h-[200px] overflow-y-auto">
+                            {detailedGroup.participants.map((participant) => (
+                              <Badge key={participant} variant="outline" className="whitespace-normal">
+                                {participant}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    </>
+                  )}
+                  
+                  {/* Fallback to old fields if detailed data isn't available */}
+                  {!detailedGroup?.analysis_result?.requests_count && selectedGroup.analysisResult?.requests_count && Object.keys(selectedGroup.analysisResult?.requests_count || {}).map((key) => {
                     const displayKey = key === "spam" ? "Спам" : key === "other" ? "Другое" : key === "freelancers" ? "Фрилансеры" : key;
                     return (
                       <TableRow key={key}>
@@ -494,7 +628,7 @@ export default function GroupsPage() {
               </Table>
             </div>
             <DialogFooter>
-              <Button onClick={() => setSelectedGroup(null)}>Закрыть</Button>
+              <Button onClick={() => { setSelectedGroup(null); setDetailedGroup(null); }}>Закрыть</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

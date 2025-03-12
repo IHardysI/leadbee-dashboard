@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Check, Ban, Loader2, XCircle, Filter } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getLeadsList, updateModerationStatus } from '@/components/shared/api/analytics';
 import PaginationUniversal from '@/components/widgets/PaginationUniversal';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -33,23 +33,58 @@ export default function LeadsPage() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const leadsPerPage = 15;
   const [displayMode, setDisplayMode] = useState<'pagination' | 'loadmore'>('pagination');
-  const [loadedCount, setLoadedCount] = useState(leadsPerPage);
+  const [hasMore, setHasMore] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [filterStatus, setFilterStatus] = useState<string>("");
+  const [totalCount, setTotalCount] = useState<number>(0);
+
+  const computedTotalPages = totalCount ? Math.ceil(totalCount / leadsPerPage) : 1;
 
   useEffect(() => {
-    const fetchLeads = async () => {
+    async function fetchLeads() {
+      setLoading(true);
       try {
-        const result = await getLeadsList();
-        setLeads(result.leads);
+        const result = await getLeadsList(currentPage, leadsPerPage);
+        if(result.leads) {
+          if (displayMode === 'pagination') {
+            setLeads(result.leads);
+          } else {
+            setLeads(prevLeads => {
+              const existingIds = new Set(prevLeads.map(lead => lead.id));
+              const uniqueNewLeads = result.leads.filter(
+                (lead: Lead) => !existingIds.has(lead.id)
+              );
+              
+              console.log(`Fetched ${result.leads.length} leads, adding ${uniqueNewLeads.length} new ones`);
+              
+              return [...prevLeads, ...uniqueNewLeads];
+            });
+          }
+          
+          if(result.totalPages) {
+            setTotalCount(result.totalPages * leadsPerPage);
+          } else if(result.total_count !== undefined) {
+            setTotalCount(result.total_count);
+          }
+          
+          const actualTotalPages = result.total_count 
+            ? Math.ceil(result.total_count / leadsPerPage) 
+            : (result.totalPages || 1);
+          
+          setHasMore(currentPage < actualTotalPages && result.leads.length > 0);
+        }
       } catch (err) {
         console.error('Error fetching leads:', err);
       } finally {
         setLoading(false);
       }
-    };
+    }
     fetchLeads();
-  }, []);
+  }, [currentPage, leadsPerPage, displayMode, filterStatus]);
+
+  useEffect(() => {
+    setTotalCount(0);
+  }, [filterStatus]);
 
   if (loading) {
     return (
@@ -60,20 +95,17 @@ export default function LeadsPage() {
   }
 
   const filteredLeads = filterStatus ? leads.filter(lead => lead.moderation_status === filterStatus) : leads;
-  const totalPages = Math.ceil(filteredLeads.length / leadsPerPage);
-  const displayedLeads = displayMode === 'loadmore' 
-    ? filteredLeads.slice(0, loadedCount)
-    : filteredLeads.slice((currentPage - 1) * leadsPerPage, currentPage * leadsPerPage);
+  const displayedLeads = filteredLeads;
 
   const handlePageChange = (page: number) => {
+    setLeads([]);
     setDisplayMode('pagination');
     setCurrentPage(page);
-    setLoadedCount(leadsPerPage);
   };
 
   const handleLoadMore = () => {
     setDisplayMode('loadmore');
-    setLoadedCount(loadedCount + leadsPerPage);
+    setCurrentPage(prev => prev + 1);
   };
 
   const getStatusText = (status: string) => {
@@ -106,17 +138,17 @@ export default function LeadsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full">
       <div className="rounded-md border overflow-hidden">
         <div className="w-full overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[150px]">Категория</TableHead>
-                <TableHead className="w-[180px]">Когда отправлен</TableHead>
-                <TableHead className="min-w-[300px]">Превью твита</TableHead>
-                <TableHead className="w-[150px]">Отправлен кому</TableHead>
-                <TableHead className="w-[150px]">
+                <TableHead className="w-[120px] whitespace-normal">Категория</TableHead>
+                <TableHead className="w-[140px] whitespace-normal">Когда отправлен</TableHead>
+                <TableHead className="w-[300px] max-w-[300px] whitespace-normal">Превью твита</TableHead>
+                <TableHead className="w-[100px] whitespace-normal hidden md:table-cell">Отправлен кому</TableHead>
+                <TableHead className="w-[120px] whitespace-normal">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="cursor-pointer font-medium flex items-center gap-1">
@@ -125,37 +157,37 @@ export default function LeadsPage() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-48">
-                      <DropdownMenuItem onClick={() => { setFilterStatus(''); setCurrentPage(1); setLoadedCount(leadsPerPage); setDisplayMode('pagination'); }}>Все</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setFilterStatus('not_reviewed'); setCurrentPage(1); setLoadedCount(leadsPerPage); setDisplayMode('pagination'); }}>Не проверено</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setFilterStatus('approved'); setCurrentPage(1); setLoadedCount(leadsPerPage); setDisplayMode('pagination'); }}>Одобрено</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setFilterStatus('spam'); setCurrentPage(1); setLoadedCount(leadsPerPage); setDisplayMode('pagination'); }}>В спам</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setFilterStatus('not_approved'); setCurrentPage(1); setLoadedCount(leadsPerPage); setDisplayMode('pagination'); }}>Отклонено</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setLeads([]); setFilterStatus(''); setCurrentPage(1); setDisplayMode('pagination'); }}>Все</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setLeads([]); setFilterStatus('not_reviewed'); setCurrentPage(1); setDisplayMode('pagination'); }}>Не проверено</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setLeads([]); setFilterStatus('approved'); setCurrentPage(1); setDisplayMode('pagination'); }}>Одобрено</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setLeads([]); setFilterStatus('spam'); setCurrentPage(1); setDisplayMode('pagination'); }}>В спам</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setLeads([]); setFilterStatus('not_approved'); setCurrentPage(1); setDisplayMode('pagination'); }}>Отклонено</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableHead>
-                <TableHead className="min-w-[300px]">Действия</TableHead>
-                <TableHead className="w-[200px]">Теги</TableHead>
+                <TableHead className="w-[160px] whitespace-normal">Действия</TableHead>
+                <TableHead className="w-[150px] whitespace-normal hidden lg:table-cell">Теги</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {displayedLeads.map((lead: Lead) => (
                 <TableRow key={lead.id}>
-                  <TableCell><Badge variant="secondary" className="inline-flex items-center whitespace-normal">{lead.category}</Badge></TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
+                  <TableCell className="align-top"><Badge variant="secondary" className="inline-flex items-center whitespace-normal text-xs">{lead.category}</Badge></TableCell>
+                  <TableCell className="text-muted-foreground text-xs align-top whitespace-normal">
                     {lead.updatedAt ? new Date(lead.updatedAt).toLocaleString('ru-RU') : '-'}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <p className="text-sm">{lead.message}</p>
+                  <TableCell className="align-top">
+                    <div className="flex flex-col gap-1 w-full max-w-[300px]">
+                      <p className="text-xs truncate whitespace-normal line-clamp-3">{lead.message}</p>
                     </div>
                   </TableCell>
-                  <TableCell>-</TableCell>
-                  <TableCell>
+                  <TableCell className="align-top hidden md:table-cell">-</TableCell>
+                  <TableCell className="align-top">
                     <Badge variant="secondary" className={getBadgeClass(lead.moderation_status)}>
                       {getStatusText(lead.moderation_status)}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="align-middle">
                     {(() => {
                       type ModerationOption = "approved" | "spam" | "not_approved";
                       const buttonProps: Record<ModerationOption, { label: string; icon: JSX.Element; className: string }> = {
@@ -177,41 +209,41 @@ export default function LeadsPage() {
                       };
                       if (lead.moderation_status === "not_reviewed") {
                         return (
-                          <>
-                            <div className="flex gap-2">
+                          <div className="flex flex-col items-center justify-center w-full">
+                            <div className="flex gap-1 w-full">
                               <Button
                                 size="sm"
-                                className={`w-1/2 ${buttonProps.approved.className}`}
+                                className={`flex-1 min-w-0 ${buttonProps.approved.className}`}
                                 onClick={() => handleStatusChange(lead.id, "approved")}
                               >
                                 {buttonProps.approved.icon}
-                                {buttonProps.approved.label}
+                                <span className="hidden sm:inline">{buttonProps.approved.label}</span>
                               </Button>
                               <Button
                                 size="sm"
-                                className={`w-1/2 ${buttonProps.not_approved.className}`}
+                                className={`flex-1 min-w-0 ${buttonProps.not_approved.className}`}
                                 onClick={() => handleStatusChange(lead.id, "not_approved")}
                               >
                                 {buttonProps.not_approved.icon}
-                                {buttonProps.not_approved.label}
+                                <span className="hidden sm:inline">{buttonProps.not_approved.label}</span>
                               </Button>
                             </div>
-                            <div className="mt-2">
+                            <div className="mt-2 w-full">
                               <Button
                                 size="sm"
                                 className={`w-full ${buttonProps.spam.className}`}
                                 onClick={() => handleStatusChange(lead.id, "spam")}
                               >
                                 {buttonProps.spam.icon}
-                                {buttonProps.spam.label}
+                                <span className="hidden sm:inline">{buttonProps.spam.label}</span>
                               </Button>
                             </div>
-                          </>
+                          </div>
                         );
                       } else {
                         const availableOptions: ModerationOption[] = ( ["approved", "spam", "not_approved"] as ModerationOption[] ).filter(s => s !== lead.moderation_status);
                         return (
-                          <div className="flex flex-col gap-2">
+                          <div className="flex flex-col gap-2 items-center justify-center w-full">
                             {availableOptions.map((option: ModerationOption) => (
                               <Button
                                 key={option}
@@ -220,7 +252,7 @@ export default function LeadsPage() {
                                 onClick={() => handleStatusChange(lead.id, option)}
                               >
                                 {buttonProps[option].icon}
-                                {buttonProps[option].label}
+                                <span className="hidden sm:inline">{buttonProps[option].label}</span>
                               </Button>
                             ))}
                           </div>
@@ -228,14 +260,14 @@ export default function LeadsPage() {
                       }
                     })()}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="align-top hidden lg:table-cell">
                     {lead.tags && lead.tags.length > 0 ? (
                       <div className="flex gap-1 flex-wrap">
                         {lead.tags.map((tag: string) => (
                           <Badge
                             key={tag}
                             variant="secondary"
-                            className="bg-gray-100">
+                            className="bg-gray-100 text-xs whitespace-normal">
                             {tag}
                           </Badge>
                         ))}
@@ -248,13 +280,13 @@ export default function LeadsPage() {
           </Table>
         </div>
       </div>
-      {totalPages > 1 && (
+      {leads.length > 0 && (
         <PaginationUniversal 
           currentPage={currentPage} 
-          totalPages={totalPages} 
+          totalPages={computedTotalPages}
           onPageChange={handlePageChange}
           onLoadMore={handleLoadMore}
-          showLoadMore={displayedLeads.length < filteredLeads.length}
+          showLoadMore={hasMore}
         />
       )}
     </div>
