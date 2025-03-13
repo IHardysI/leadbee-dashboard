@@ -112,75 +112,179 @@ export default function ChatsPage() {
   // Filter state
   const [filterStage, setFilterStage] = useState<string>("");
   const [isFilterActive, setIsFilterActive] = useState<boolean>(false);
+  const [isFilterApplied, setIsFilterApplied] = useState<boolean>(false);
   
   // Calculate total pages based on total count
   const totalPages = Math.ceil(totalCount / chatsPerPage);
 
-  const fetchConversations = async (page: number, mode: 'pagination' | 'loadMore' = 'pagination') => {
+  // Track filtered conversations for accurate pagination
+  const [allConversations, setAllConversations] = useState<Conversation[]>([]);
+  const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
+  const [isLoadingAll, setIsLoadingAll] = useState<boolean>(false);
+  const [allConversationsLoaded, setAllConversationsLoaded] = useState<boolean>(false);
+
+  const fetchAllConversations = async () => {
+    if (isLoadingAll || allConversationsLoaded) return;
+    
+    setIsLoadingAll(true);
     try {
-      setIsLoading(mode === 'pagination');
-      setIsLoadingMore(mode === 'loadMore');
-
-      console.log('Current filterStage value:', filterStage);
+      console.log('Fetching all conversations for filtering');
       
-      // Build the filter based on the filterStage
-      let filter: Record<string, any> = {};
-      let useStageParameter = false;
-
-      console.log('Current filterStage value:', filterStage);
+      // Fetch in batches to prevent timeout
+      const batchSize = 50;
+      let currentPage = 1;
+      let allResults: Conversation[] = [];
+      let hasMore = true;
+      let fetchAttempts = 0;
+      const maxAttempts = 10; // Safety limit to prevent infinite loops
       
-      // Always fetch unfiltered results when any filter is active
-      // We'll filter on the client side for all filters
-      
-      console.log(`Fetching conversations - page: ${page}, mode: ${mode}, filter:`, filter);
-      
-      const response = await getConversationsList({
-        page,
-        limit: chatsPerPage,
-        filter: {}
-      });
-      
-      console.log(`Received ${response.conversations.length} conversations, total: ${response.total_count}`);
-      
-      // Handle conversations based on filter and mode
-      let processedConversations = response.conversations;
-      
-      // Client-side filtering for all stage filters
-      if (filterStage) {
-        if (filterStage === 'null_stage') {
-          // Filter for null stages
-          processedConversations = response.conversations.filter(conv => conv.stage === null);
-          console.log(`After null stage filtering: ${processedConversations.length} conversations`);
+      while (hasMore && fetchAttempts < maxAttempts) {
+        fetchAttempts++;
+        const response = await getConversationsList({
+          page: currentPage,
+          limit: batchSize,
+          filter: {}
+        });
+        
+        if (response.conversations.length > 0) {
+          allResults = [...allResults, ...response.conversations];
+          console.log(`Loaded ${allResults.length} conversations out of ${response.total_count}`);
+          
+          // Stop if we've loaded all or reached a reasonable limit
+          if (allResults.length >= response.total_count || allResults.length >= 500 || response.conversations.length < batchSize) {
+            hasMore = false;
+            setAllConversationsLoaded(true);
+          } else {
+            currentPage++;
+          }
         } else {
-          // Filter for specific stages
-          processedConversations = response.conversations.filter(conv => conv.stage === filterStage);
-          console.log(`After filtering for stage "${filterStage}": ${processedConversations.length} conversations`);
+          hasMore = false;
+          setAllConversationsLoaded(true);
         }
       }
       
-      if (mode === 'pagination') {
-        setConversations(processedConversations);
-      } else {
-        // In load more mode, append new conversations to existing ones
-        setConversations(prev => {
-          const newConversations = processedConversations.filter(
-            (conversation) => !prev.some(existing => existing.conversation_id === conversation.conversation_id)
-          );
-          console.log(`Adding ${newConversations.length} new conversations to existing ${prev.length}`);
-          return [...prev, ...newConversations];
-        });
+      if (fetchAttempts >= maxAttempts) {
+        console.warn('Reached maximum fetch attempts - stopping to prevent infinite loop');
+        setAllConversationsLoaded(true);
       }
       
-      // Set total count - adjusted for client-side filtering
-      if (response.total_count !== undefined) {
-        if (filterStage) {
-          // For client-side filtering, estimate based on the ratio in this page
-          const filterRatio = processedConversations.length / response.conversations.length || 0;
-          const estimatedTotal = Math.round(response.total_count * filterRatio);
-          setTotalCount(Math.max(estimatedTotal, processedConversations.length));
-          console.log(`Estimated total for filter "${filterStage}": ${estimatedTotal}`);
+      setAllConversations(allResults);
+      // Apply filter immediately after loading
+      setIsFilterApplied(true);
+    } catch (err) {
+      console.error('Error fetching all conversations:', err);
+      // Even on error, mark as loaded to prevent endless retries
+      setAllConversationsLoaded(true);
+      setIsFilterApplied(true);
+    } finally {
+      setIsLoadingAll(false);
+    }
+  };
+
+  const fetchConversations = async (page: number, mode: 'pagination' | 'loadMore' = 'pagination') => {
+    try {
+      // Only set loading states if we're not already loading all conversations 
+      if (!isLoadingAll) {
+        setIsLoading(mode === 'pagination');
+        setIsLoadingMore(mode === 'loadMore');
+      }
+      
+      // If filtering is active, make sure we have all conversations loaded
+      if (filterStage && !allConversationsLoaded && !isLoadingAll) {
+        // If we're applying a filter for the first time, we need to load all conversations first
+        if (!isFilterApplied || isInitialLoad) {
+          console.log('Loading all conversations for filtering...');
+          await fetchAllConversations();
+          setIsInitialLoad(false);
+          return; // Return early and let the effect trigger a re-fetch
+        }
+      }
+      
+      // Handle normal pagination (no filter)
+      if (!filterStage) {
+        console.log(`Fetching conversations from API - page: ${page}, mode: ${mode}`);
+        
+        const response = await getConversationsList({
+          page,
+          limit: chatsPerPage,
+          filter: {}
+        });
+        
+        console.log(`Received ${response.conversations.length} conversations, total: ${response.total_count}`);
+        
+        if (mode === 'pagination') {
+          setConversations(response.conversations);
         } else {
-          setTotalCount(response.total_count);
+          // In load more mode, append new conversations to existing ones
+          setConversations(prev => {
+            const newConversations = response.conversations.filter(
+              (conversation) => !prev.some(existing => existing.conversation_id === conversation.conversation_id)
+            );
+            console.log(`Adding ${newConversations.length} new conversations to existing ${prev.length}`);
+            return [...prev, ...newConversations];
+          });
+        }
+        
+        setTotalCount(response.total_count);
+      }
+      // Handle filtering - if we've loaded all conversations for filtering
+      else if (allConversations.length > 0) {
+        console.log('Applying filter to loaded conversations');
+        // Apply filtering to all conversations
+        let filteredConversations = [...allConversations];
+        
+        if (filterStage === 'null_stage') {
+          // Filter for null stages
+          filteredConversations = filteredConversations.filter(conv => conv.stage === null);
+        } else if (filterStage === 'завершен') {
+          // Filter for "завершен" stage
+          filteredConversations = filteredConversations.filter(conv => conv.stage === 'завершен');
+        } else if (filterStage === 'убеждение_на_подписку') {
+          // Filter for "убеждение_на_подписку" stage
+          filteredConversations = filteredConversations.filter(conv => conv.stage === 'убеждение_на_подписку');
+        } else {
+          // Standard stage filtering
+          filteredConversations = filteredConversations.filter(conv => conv.stage === filterStage);
+        }
+        
+        // Sort conversations by date (newest first)
+        filteredConversations.sort((a, b) => 
+          new Date(b.last_created_at).getTime() - new Date(a.last_created_at).getTime()
+        );
+        
+        // Calculate total filtered count
+        const totalFilteredCount = filteredConversations.length;
+        console.log(`Total filtered conversations: ${totalFilteredCount}`);
+        
+        // Apply pagination to filtered results
+        const startIndex = (page - 1) * chatsPerPage;
+        const endIndex = mode === 'pagination' 
+          ? startIndex + chatsPerPage 
+          : conversations.length + chatsPerPage;
+        
+        const paginatedResults = filteredConversations.slice(
+          mode === 'pagination' ? startIndex : 0, 
+          endIndex
+        );
+        
+        console.log(`Showing ${paginatedResults.length} filtered conversations for page ${page}`);
+        
+        if (mode === 'pagination') {
+          setConversations(paginatedResults);
+        } else {
+          // In load more mode, append new filtered conversations
+          setConversations(prev => [...prev, ...paginatedResults.slice(prev.length)]);
+        }
+        
+        // Use the filtered total for pagination
+        setTotalCount(totalFilteredCount);
+      }
+      // When filter is active but data is still loading
+      else {
+        console.log('Filtering is active but all conversations are not yet loaded');
+        // Show temporary loading state until data is loaded
+        if (mode === 'pagination') {
+          setConversations([]);
         }
       }
       
@@ -189,19 +293,35 @@ export default function ChatsPage() {
       console.error('Error fetching conversations:', err);
       setError('Failed to load conversations');
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
+      // Always clear loading states unless we're still loading all conversations
+      if (!isLoadingAll) {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchConversations(currentPage, navigationMode);
-  }, [currentPage, navigationMode, chatsPerPage, filterStage]);
+    // Don't fetch while loading all conversations
+    if (!isLoadingAll) {
+      fetchConversations(currentPage, navigationMode);
+    }
+  }, [currentPage, navigationMode, filterStage, isLoadingAll, allConversationsLoaded]);
 
-  // Reset total count when filter changes
+  // Handle filter changes 
   useEffect(() => {
-    setTotalCount(0);
-  }, [filterStage]);
+    if (filterStage) {
+      // When a filter is applied, load all conversations if needed
+      if (!allConversationsLoaded && !isLoadingAll) {
+        console.log('Filter applied, preparing to load all conversations');
+        setIsInitialLoad(true);
+        setIsFilterApplied(false);
+      }
+    } else {
+      // Reset filter state when filter is cleared
+      setIsFilterApplied(false);
+    }
+  }, [filterStage, allConversationsLoaded, isLoadingAll]);
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -311,9 +431,10 @@ export default function ChatsPage() {
     setConversations([]);
     setFilterStage('');
     setIsFilterActive(false);
+    setIsFilterApplied(false);
     setCurrentPage(1);
     setNavigationMode('pagination');
-    // Force refetch even if filter didn't change
+    // Force refetch
     fetchConversations(1, 'pagination');
   };
 
@@ -324,15 +445,16 @@ export default function ChatsPage() {
     
     // Check if applying the same filter again
     if (filterStage === stage) {
-      // Force a refetch without changing the filter value
+      // Force a refetch with the same filter
       setCurrentPage(1);
       setNavigationMode('pagination');
-      // Directly trigger a refetch
+      setIsFilterApplied(true); // Mark filter as already applied
       fetchConversations(1, 'pagination');
     } else {
       // Normal filter change
       setFilterStage(stage);
       setIsFilterActive(!!stage);
+      setIsFilterApplied(false); // New filter needs to be applied
       setCurrentPage(1);
       setNavigationMode('pagination');
     }
@@ -343,6 +465,15 @@ export default function ChatsPage() {
       <Loader2 className="animate-spin h-10 w-10 text-muted-foreground" />
     </div>
   );
+  
+  // Show loading indicator when fetching all data for filtering
+  if (isLoadingAll) return (
+    <div className="flex h-screen w-full flex-col items-center justify-center gap-2">
+      <Loader2 className="animate-spin h-10 w-10 text-muted-foreground" />
+      <div className="text-sm text-muted-foreground">Загрузка данных для фильтрации...</div>
+    </div>
+  );
+  
   if (error) return <div className="p-4 text-red-500">{error}</div>;
 
   return (
@@ -368,15 +499,31 @@ export default function ChatsPage() {
                     <DropdownMenuItem onClick={resetFilter}>
                       Все
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => applyStageFilter('убеждение_на_бесплатные_лиды')}>
-                      Убеждение на бесплатные лиды
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => applyStageFilter('отправка_бесплатных_лидов')}>
-                      Отправка бесплатных лидов
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => applyStageFilter('null_stage')}>
-                      Без стадии
-                    </DropdownMenuItem>
+                    {filterStage !== 'убеждение_на_бесплатные_лиды' && (
+                      <DropdownMenuItem onClick={() => applyStageFilter('убеждение_на_бесплатные_лиды')}>
+                        Убеждение на бесплатные лиды
+                      </DropdownMenuItem>
+                    )}
+                    {filterStage !== 'отправка_бесплатных_лидов' && (
+                      <DropdownMenuItem onClick={() => applyStageFilter('отправка_бесплатных_лидов')}>
+                        Отправка бесплатных лидов
+                      </DropdownMenuItem>
+                    )}
+                    {filterStage !== 'убеждение_на_подписку' && (
+                      <DropdownMenuItem onClick={() => applyStageFilter('убеждение_на_подписку')}>
+                        Убеждение на подписку
+                      </DropdownMenuItem>
+                    )}
+                    {filterStage !== 'завершен' && (
+                      <DropdownMenuItem onClick={() => applyStageFilter('завершен')}>
+                        Завершен
+                      </DropdownMenuItem>
+                    )}
+                    {filterStage !== 'null_stage' && (
+                      <DropdownMenuItem onClick={() => applyStageFilter('null_stage')}>
+                        Без стадии
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableHead>
@@ -466,7 +613,7 @@ export default function ChatsPage() {
       </Table>
       </div>
       
-      {isLoadingMore && navigationMode === 'loadMore' && (
+      {isLoadingMore && (
         <div className="flex justify-center my-4">
           <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
         </div>
@@ -478,7 +625,13 @@ export default function ChatsPage() {
           totalPages={totalPages}
           onPageChange={handlePageChange}
           onLoadMore={handleLoadMore}
-          showLoadMore={currentPage < totalPages}
+          showLoadMore={
+            !isLoadingMore && (
+              !filterStage 
+              ? currentPage < totalPages 
+              : allConversationsLoaded && conversations.length < totalCount
+            )
+          }
         />
       )}
     </div>

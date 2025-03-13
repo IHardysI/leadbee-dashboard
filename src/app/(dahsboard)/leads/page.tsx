@@ -37,41 +37,160 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [totalCount, setTotalCount] = useState<number>(0);
+  const [allLeads, setAllLeads] = useState<Lead[]>([]);
+  const [isLoadingAllLeads, setIsLoadingAllLeads] = useState<boolean>(false);
+  const [allLeadsLoaded, setAllLeadsLoaded] = useState<boolean>(false);
 
-  const computedTotalPages = totalCount ? Math.ceil(totalCount / leadsPerPage) : 1;
+  const computedTotalPages = (() => {
+    if (filterStatus && allLeadsLoaded) {
+      const filteredCount = allLeads.filter(lead => lead.moderation_status === filterStatus).length;
+      return Math.ceil(filteredCount / leadsPerPage);
+    } else {
+      return totalCount ? Math.ceil(totalCount / leadsPerPage) : 1;
+    }
+  })();
 
   useEffect(() => {
-    async function fetchLeads() {
-      setLoading(true);
-      try {
-        const result = await getLeadsList(currentPage, leadsPerPage);
-        if(result.leads) {
+    if (filterStatus && !allLeadsLoaded && !isLoadingAllLeads) {
+      const fetchAllLeads = async () => {
+        setIsLoadingAllLeads(true);
+        try {
+          console.log('Loading all leads for filtering...');
+          
+          const batchSize = 50;
+          let currentFetchPage = 1;
+          let allFetchedLeads: Lead[] = [];
+          let hasMore = true;
+          let fetchAttempts = 0;
+          const maxAttempts = 10;
+          
+          while (hasMore && fetchAttempts < maxAttempts) {
+            fetchAttempts++;
+            const response = await getLeadsList(currentFetchPage, batchSize, '');
+            
+            if (response.leads?.length > 0) {
+              allFetchedLeads = [...allFetchedLeads, ...response.leads];
+              console.log(`Loaded ${allFetchedLeads.length} leads out of ${response.total_count || 'unknown'}`);
+              
+              if (
+                allFetchedLeads.length >= (response.total_count || 0) || 
+                allFetchedLeads.length >= 500 || 
+                response.leads.length < batchSize
+              ) {
+                hasMore = false;
+                setAllLeadsLoaded(true);
+              } else {
+                currentFetchPage++;
+              }
+            } else {
+              hasMore = false;
+              setAllLeadsLoaded(true);
+            }
+          }
+          
+          if (fetchAttempts >= maxAttempts) {
+            console.warn('Reached maximum fetch attempts - stopping to prevent infinite loop');
+            setAllLeadsLoaded(true);
+          }
+          
+          setAllLeads(allFetchedLeads);
+          
+          const filteredLeads = allFetchedLeads.filter(
+            lead => lead.moderation_status === filterStatus
+          );
+          
           if (displayMode === 'pagination') {
-            setLeads(result.leads);
+            const startIndex = (currentPage - 1) * leadsPerPage;
+            const endIndex = startIndex + leadsPerPage;
+            setLeads(filteredLeads.slice(startIndex, endIndex));
           } else {
-            setLeads(prevLeads => {
-              const existingIds = new Set(prevLeads.map(lead => lead.id));
-              const uniqueNewLeads = result.leads.filter(
-                (lead: Lead) => !existingIds.has(lead.id)
-              );
-              
-              console.log(`Fetched ${result.leads.length} leads, adding ${uniqueNewLeads.length} new ones`);
-              
-              return [...prevLeads, ...uniqueNewLeads];
+            setLeads(prev => {
+              const existingIds = new Set(prev.map(lead => lead.id));
+              const newLeads = filteredLeads.filter(lead => !existingIds.has(lead.id));
+              return [...prev, ...newLeads];
             });
           }
           
-          if(result.totalPages) {
-            setTotalCount(result.totalPages * leadsPerPage);
-          } else if(result.total_count !== undefined) {
-            setTotalCount(result.total_count);
+        } catch (err) {
+          console.error('Error fetching all leads:', err);
+          setAllLeadsLoaded(true);
+        } finally {
+          setIsLoadingAllLeads(false);
+        }
+      };
+      
+      fetchAllLeads();
+    }
+  }, [filterStatus, allLeadsLoaded, isLoadingAllLeads, currentPage, leadsPerPage, displayMode]);
+
+  useEffect(() => {
+    async function fetchLeads() {
+      // Don't fetch while loading all leads
+      if (isLoadingAllLeads) return;
+      
+      setLoading(true);
+      try {
+        // If filtering and all leads are loaded, use client-side filtering
+        if (filterStatus && allLeadsLoaded) {
+          console.log('Using client-side filtering for leads');
+          
+          const filteredLeads = allLeads.filter(
+            lead => lead.moderation_status === filterStatus
+          );
+          
+          // Apply pagination to filtered results
+          const startIndex = (currentPage - 1) * leadsPerPage;
+          const endIndex = startIndex + leadsPerPage;
+          
+          if (displayMode === 'pagination') {
+            setLeads(filteredLeads.slice(startIndex, endIndex));
+          } else {
+            // For load more, we append new filtered leads
+            const prevLeadsCount = leads.length;
+            const newLeads = filteredLeads.slice(prevLeadsCount, prevLeadsCount + leadsPerPage);
+            
+            setLeads(prev => {
+              const existingIds = new Set(prev.map(lead => lead.id));
+              const uniqueNewLeads = newLeads.filter(lead => !existingIds.has(lead.id));
+              return [...prev, ...uniqueNewLeads];
+            });
           }
           
-          const actualTotalPages = result.total_count 
-            ? Math.ceil(result.total_count / leadsPerPage) 
-            : (result.totalPages || 1);
+          // Update hasMore flag based on filtered count
+          setHasMore(endIndex < filteredLeads.length);
           
-          setHasMore(currentPage < actualTotalPages && result.leads.length > 0);
+        } else {
+          // Regular API-based fetching
+          const result = await getLeadsList(currentPage, leadsPerPage, filterStatus);
+          
+          if(result.leads) {
+            if (displayMode === 'pagination') {
+              setLeads(result.leads);
+            } else {
+              setLeads(prevLeads => {
+                const existingIds = new Set(prevLeads.map(lead => lead.id));
+                const uniqueNewLeads = result.leads.filter(
+                  (lead: Lead) => !existingIds.has(lead.id)
+                );
+                
+                console.log(`Fetched ${result.leads.length} leads, adding ${uniqueNewLeads.length} new ones`);
+                
+                return [...prevLeads, ...uniqueNewLeads];
+              });
+            }
+            
+            if(result.totalPages) {
+              setTotalCount(result.totalPages * leadsPerPage);
+            } else if(result.total_count !== undefined) {
+              setTotalCount(result.total_count);
+            }
+            
+            const actualTotalPages = result.total_count 
+              ? Math.ceil(result.total_count / leadsPerPage) 
+              : (result.totalPages || 1);
+            
+            setHasMore(currentPage < actualTotalPages && result.leads.length > 0);
+          }
         }
       } catch (err) {
         console.error('Error fetching leads:', err);
@@ -79,14 +198,15 @@ export default function LeadsPage() {
         setLoading(false);
       }
     }
+    
     fetchLeads();
-  }, [currentPage, leadsPerPage, displayMode, filterStatus]);
+  }, [currentPage, leadsPerPage, displayMode, filterStatus, allLeadsLoaded, isLoadingAllLeads, allLeads]);
 
   useEffect(() => {
     setTotalCount(0);
   }, [filterStatus]);
 
-  if (loading) {
+  if (loading || isLoadingAllLeads) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="animate-spin h-10 w-10 text-muted-foreground" />
@@ -94,8 +214,7 @@ export default function LeadsPage() {
     );
   }
 
-  const filteredLeads = filterStatus ? leads.filter(lead => lead.moderation_status === filterStatus) : leads;
-  const displayedLeads = filteredLeads;
+  const displayedLeads = leads;
 
   const handlePageChange = (page: number) => {
     setLeads([]);
@@ -114,7 +233,6 @@ export default function LeadsPage() {
     setFilterStatus('');
     setCurrentPage(1);
     setDisplayMode('pagination');
-    fetchLeads();
   };
 
   const applyFilter = (status: string) => {
@@ -122,40 +240,12 @@ export default function LeadsPage() {
     setLeads([]);
     
     if (filterStatus === status) {
-      setCurrentPage(1);
-      setDisplayMode('pagination');
-      fetchLeads();
+      setFilterStatus('');
     } else {
       setFilterStatus(status);
-      setCurrentPage(1);
-      setDisplayMode('pagination');
     }
-  };
-  
-  const fetchLeads = async () => {
-    setLoading(true);
-    try {
-      const result = await getLeadsList(currentPage, leadsPerPage);
-      if(result.leads) {
-        setLeads(result.leads);
-        
-        if(result.totalPages) {
-          setTotalCount(result.totalPages * leadsPerPage);
-        } else if(result.total_count !== undefined) {
-          setTotalCount(result.total_count);
-        }
-        
-        const actualTotalPages = result.total_count 
-          ? Math.ceil(result.total_count / leadsPerPage) 
-          : (result.totalPages || 1);
-        
-        setHasMore(currentPage < actualTotalPages && result.leads.length > 0);
-      }
-    } catch (err) {
-      console.error('Error fetching leads:', err);
-    } finally {
-      setLoading(false);
-    }
+    setCurrentPage(1);
+    setDisplayMode('pagination');
   };
 
   const getStatusText = (status: string) => {
@@ -201,17 +291,36 @@ export default function LeadsPage() {
                 <TableHead className="w-[120px] whitespace-normal">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="cursor-pointer font-medium flex items-center gap-1">
+                      <button className={`cursor-pointer font-medium flex items-center gap-1 ${filterStatus ? 'text-blue-600' : ''}`}>
                         Статус
-                        <Filter className="h-4 w-4" />
+                        <Filter className={`h-4 w-4 ${filterStatus ? 'text-blue-600 fill-blue-100' : ''}`} />
+                        {filterStatus && <span className="ml-1 text-xs bg-blue-100 text-blue-800 rounded-full px-2 py-0.5">Фильтр</span>}
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-48">
-                      <DropdownMenuItem onClick={resetFilter}>Все</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => applyFilter('not_reviewed')}>Не проверено</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => applyFilter('approved')}>Одобрено</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => applyFilter('spam')}>В спам</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => applyFilter('not_approved')}>Отклонено</DropdownMenuItem>
+                      <DropdownMenuItem onClick={resetFilter}>
+                        Все
+                      </DropdownMenuItem>
+                      {filterStatus !== 'not_reviewed' && (
+                        <DropdownMenuItem onClick={() => applyFilter('not_reviewed')}>
+                          Не проверено
+                        </DropdownMenuItem>
+                      )}
+                      {filterStatus !== 'approved' && (
+                        <DropdownMenuItem onClick={() => applyFilter('approved')}>
+                          Одобрено
+                        </DropdownMenuItem>
+                      )}
+                      {filterStatus !== 'spam' && (
+                        <DropdownMenuItem onClick={() => applyFilter('spam')}>
+                          В спам
+                        </DropdownMenuItem>
+                      )}
+                      {filterStatus !== 'not_approved' && (
+                        <DropdownMenuItem onClick={() => applyFilter('not_approved')}>
+                          Отклонено
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableHead>
@@ -336,7 +445,15 @@ export default function LeadsPage() {
           totalPages={computedTotalPages}
           onPageChange={handlePageChange}
           onLoadMore={handleLoadMore}
-          showLoadMore={hasMore}
+          showLoadMore={
+            !isLoadingAllLeads && (
+              !filterStatus 
+              ? currentPage < computedTotalPages 
+              : allLeadsLoaded && leads.length < (
+                allLeads.filter(lead => lead.moderation_status === filterStatus).length
+              )
+            )
+          }
         />
       )}
     </div>

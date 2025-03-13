@@ -63,12 +63,20 @@ export const analyzeGroup = async (groupIds: string[], categoryIds: string[]): P
 
 /**
  * Retrieves a list of leads with the specified limit and offset.
+ * Optionally filters by moderation_status if provided.
  */
-export const getLeadsList = async (page: number = 1, limit: number = 15): Promise<any> => {
+export const getLeadsList = async (page: number = 1, limit: number = 15, moderation_status: string = ''): Promise<any> => {
   const offset = (page - 1) * limit;
-  const response = await axios.get(`${API_BASE_URL}/lead/list`, {
-    params: { limit, offset, ts: new Date().getTime() }
-  });
+  const params: any = { limit, offset, ts: new Date().getTime() };
+  
+  if (moderation_status) {
+    params.moderation_status = moderation_status;
+    console.log(`Filtering leads by moderation_status: ${moderation_status}`);
+  }
+  
+  console.log('API call params:', params);
+  const response = await axios.get(`${API_BASE_URL}/lead/list`, { params });
+  console.log(`API response: ${response.data.leads?.length} leads, total: ${response.data.total_count || 'unknown'}`);
   return response.data;
 };
 
