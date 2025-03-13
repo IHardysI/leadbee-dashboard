@@ -108,6 +108,56 @@ export default function LeadsPage() {
     setCurrentPage(prev => prev + 1);
   };
 
+  const resetFilter = () => {
+    console.log("Resetting filter");
+    setLeads([]);
+    setFilterStatus('');
+    setCurrentPage(1);
+    setDisplayMode('pagination');
+    fetchLeads();
+  };
+
+  const applyFilter = (status: string) => {
+    console.log(`Applying status filter: ${status}`);
+    setLeads([]);
+    
+    if (filterStatus === status) {
+      setCurrentPage(1);
+      setDisplayMode('pagination');
+      fetchLeads();
+    } else {
+      setFilterStatus(status);
+      setCurrentPage(1);
+      setDisplayMode('pagination');
+    }
+  };
+  
+  const fetchLeads = async () => {
+    setLoading(true);
+    try {
+      const result = await getLeadsList(currentPage, leadsPerPage);
+      if(result.leads) {
+        setLeads(result.leads);
+        
+        if(result.totalPages) {
+          setTotalCount(result.totalPages * leadsPerPage);
+        } else if(result.total_count !== undefined) {
+          setTotalCount(result.total_count);
+        }
+        
+        const actualTotalPages = result.total_count 
+          ? Math.ceil(result.total_count / leadsPerPage) 
+          : (result.totalPages || 1);
+        
+        setHasMore(currentPage < actualTotalPages && result.leads.length > 0);
+      }
+    } catch (err) {
+      console.error('Error fetching leads:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusText = (status: string) => {
     switch(status) {
       case "approved": return "Одобрено";
@@ -157,11 +207,11 @@ export default function LeadsPage() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-48">
-                      <DropdownMenuItem onClick={() => { setLeads([]); setFilterStatus(''); setCurrentPage(1); setDisplayMode('pagination'); }}>Все</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setLeads([]); setFilterStatus('not_reviewed'); setCurrentPage(1); setDisplayMode('pagination'); }}>Не проверено</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setLeads([]); setFilterStatus('approved'); setCurrentPage(1); setDisplayMode('pagination'); }}>Одобрено</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setLeads([]); setFilterStatus('spam'); setCurrentPage(1); setDisplayMode('pagination'); }}>В спам</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setLeads([]); setFilterStatus('not_approved'); setCurrentPage(1); setDisplayMode('pagination'); }}>Отклонено</DropdownMenuItem>
+                      <DropdownMenuItem onClick={resetFilter}>Все</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => applyFilter('not_reviewed')}>Не проверено</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => applyFilter('approved')}>Одобрено</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => applyFilter('spam')}>В спам</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => applyFilter('not_approved')}>Отклонено</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableHead>

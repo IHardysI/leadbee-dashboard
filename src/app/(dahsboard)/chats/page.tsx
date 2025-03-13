@@ -12,7 +12,7 @@ import {
   TableHeader,
 } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { MessageSquare, Loader2, User, Bot } from 'lucide-react';
+import { MessageSquare, Loader2, User, Bot, Filter } from 'lucide-react';
 import Link from 'next/link';
 import { ChatDialog } from '@/components/ui/ChatDialog/index';
 import { 
@@ -22,6 +22,7 @@ import {
   ConversationMessage 
 } from '@/components/shared/api/chats';
 import PaginationUniversal from '@/components/widgets/PaginationUniversal';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
 interface ChatMessage {
   id: string;
@@ -95,7 +96,8 @@ const EnhancedChatDialog = ({ messages, botName, userName }: {
 
 export default function ChatsPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [conversationMessages, setConversationMessages] = useState<ChatMessage[]>([]);
@@ -104,46 +106,102 @@ export default function ChatsPage() {
   // Pagination states
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [navigationMode, setNavigationMode] = useState<'pagination' | 'loadmore'>('pagination');
+  const [navigationMode, setNavigationMode] = useState<'pagination' | 'loadMore'>('pagination');
   const chatsPerPage = 15;
 
+  // Filter state
+  const [filterStage, setFilterStage] = useState<string>("");
+  const [isFilterActive, setIsFilterActive] = useState<boolean>(false);
+  
   // Calculate total pages based on total count
   const totalPages = Math.ceil(totalCount / chatsPerPage);
 
-  useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        setLoading(true);
-        const data = await getConversationsList(currentPage, chatsPerPage);
-        
-        if (navigationMode === 'pagination') {
-          setConversations(data.conversations);
-        } else {
-          // In load more mode, append the new conversations to existing ones
-          setConversations(prev => {
-            const newConversations = data.conversations.filter(
-              (conversation: Conversation) => !prev.some(existing => existing.conversation_id === conversation.conversation_id)
-            );
-            return [...prev, ...newConversations];
-          });
-        }
-        
-        // Set total count from the API response
-        if (data.total_count !== undefined) {
-          setTotalCount(data.total_count);
-        }
-        
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching conversations:', err);
-        setError('Failed to load conversations');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchConversations = async (page: number, mode: 'pagination' | 'loadMore' = 'pagination') => {
+    try {
+      setIsLoading(mode === 'pagination');
+      setIsLoadingMore(mode === 'loadMore');
 
-    fetchConversations();
-  }, [currentPage, navigationMode, chatsPerPage]);
+      console.log('Current filterStage value:', filterStage);
+      
+      // Build the filter based on the filterStage
+      let filter: Record<string, any> = {};
+      let useStageParameter = false;
+
+      console.log('Current filterStage value:', filterStage);
+      
+      // Always fetch unfiltered results when any filter is active
+      // We'll filter on the client side for all filters
+      
+      console.log(`Fetching conversations - page: ${page}, mode: ${mode}, filter:`, filter);
+      
+      const response = await getConversationsList({
+        page,
+        limit: chatsPerPage,
+        filter: {}
+      });
+      
+      console.log(`Received ${response.conversations.length} conversations, total: ${response.total_count}`);
+      
+      // Handle conversations based on filter and mode
+      let processedConversations = response.conversations;
+      
+      // Client-side filtering for all stage filters
+      if (filterStage) {
+        if (filterStage === 'null_stage') {
+          // Filter for null stages
+          processedConversations = response.conversations.filter(conv => conv.stage === null);
+          console.log(`After null stage filtering: ${processedConversations.length} conversations`);
+        } else {
+          // Filter for specific stages
+          processedConversations = response.conversations.filter(conv => conv.stage === filterStage);
+          console.log(`After filtering for stage "${filterStage}": ${processedConversations.length} conversations`);
+        }
+      }
+      
+      if (mode === 'pagination') {
+        setConversations(processedConversations);
+      } else {
+        // In load more mode, append new conversations to existing ones
+        setConversations(prev => {
+          const newConversations = processedConversations.filter(
+            (conversation) => !prev.some(existing => existing.conversation_id === conversation.conversation_id)
+          );
+          console.log(`Adding ${newConversations.length} new conversations to existing ${prev.length}`);
+          return [...prev, ...newConversations];
+        });
+      }
+      
+      // Set total count - adjusted for client-side filtering
+      if (response.total_count !== undefined) {
+        if (filterStage) {
+          // For client-side filtering, estimate based on the ratio in this page
+          const filterRatio = processedConversations.length / response.conversations.length || 0;
+          const estimatedTotal = Math.round(response.total_count * filterRatio);
+          setTotalCount(Math.max(estimatedTotal, processedConversations.length));
+          console.log(`Estimated total for filter "${filterStage}": ${estimatedTotal}`);
+        } else {
+          setTotalCount(response.total_count);
+        }
+      }
+      
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching conversations:', err);
+      setError('Failed to load conversations');
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchConversations(currentPage, navigationMode);
+  }, [currentPage, navigationMode, chatsPerPage, filterStage]);
+
+  // Reset total count when filter changes
+  useEffect(() => {
+    setTotalCount(0);
+  }, [filterStage]);
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -153,10 +211,13 @@ export default function ChatsPage() {
 
   // Handle "Load More" button click
   const handleLoadMore = () => {
-    setNavigationMode('loadmore');
+    setNavigationMode('loadMore');
     setCurrentPage(prev => prev + 1);
   };
 
+  // We don't need to filter here since the server already filters the results
+  // Let's use the conversations directly from the API response
+  
   // Convert API messages to chat display format
   const convertToDialogMessages = (messages: ConversationMessage[]): ChatMessage[] => {
     return messages.map((message, index) => {
@@ -190,10 +251,10 @@ export default function ChatsPage() {
       console.error('Error fetching conversation messages:', err);
       // Fallback to last message if we can't get the full conversation
       setConversationMessages([{
-        id: '1',
+      id: '1',
         content: conversation.last_message,
         timestamp: conversation.last_created_at,
-        isBot: false,
+          isBot: false,
         senderName: conversation.bot_alias
       }]);
     } finally {
@@ -229,9 +290,9 @@ export default function ChatsPage() {
     if (stage.includes('отправка')) {
       return 'bg-blue-100 text-blue-800';
     } else if (stage.includes('убеждение')) {
-      return 'bg-orange-100 text-orange-800';
+        return 'bg-orange-100 text-orange-800';
     } else {
-      return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -244,7 +305,40 @@ export default function ChatsPage() {
     return botAlias.includes('Leadbee') ? 'manager' : 'seller';
   };
 
-  if (loading && navigationMode === 'pagination') return (
+  // Reset filter
+  const resetFilter = () => {
+    console.log("Resetting filter");
+    setConversations([]);
+    setFilterStage('');
+    setIsFilterActive(false);
+    setCurrentPage(1);
+    setNavigationMode('pagination');
+    // Force refetch even if filter didn't change
+    fetchConversations(1, 'pagination');
+  };
+
+  // Apply stage filter
+  const applyStageFilter = (stage: string) => {
+    console.log(`Applying stage filter: ${stage}`);
+    setConversations([]);
+    
+    // Check if applying the same filter again
+    if (filterStage === stage) {
+      // Force a refetch without changing the filter value
+      setCurrentPage(1);
+      setNavigationMode('pagination');
+      // Directly trigger a refetch
+      fetchConversations(1, 'pagination');
+    } else {
+      // Normal filter change
+      setFilterStage(stage);
+      setIsFilterActive(!!stage);
+      setCurrentPage(1);
+      setNavigationMode('pagination');
+    }
+  };
+
+  if (isLoading && navigationMode === 'pagination') return (
     <div className="flex h-screen w-full items-center justify-center">
       <Loader2 className="animate-spin h-10 w-10 text-muted-foreground" />
     </div>
@@ -253,40 +347,64 @@ export default function ChatsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[100px]">Переписка</TableHead>
-              <TableHead>Роль</TableHead>
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[100px]">Переписка</TableHead>
+            <TableHead>Роль</TableHead>
               <TableHead>Клиент</TableHead>
               <TableHead>Бот</TableHead>
-              <TableHead>Стадия</TableHead>
+              <TableHead>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className={`cursor-pointer font-medium flex items-center gap-1 ${isFilterActive ? 'text-blue-600' : ''}`}>
+                      Стадия
+                      <Filter className={`h-4 w-4 ${isFilterActive ? 'text-blue-600 fill-blue-100' : ''}`} />
+                      {isFilterActive && <span className="ml-1 text-xs bg-blue-100 text-blue-800 rounded-full px-2 py-0.5">Фильтр</span>}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-64">
+                    <DropdownMenuItem onClick={resetFilter}>
+                      Все
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => applyStageFilter('убеждение_на_бесплатные_лиды')}>
+                      Убеждение на бесплатные лиды
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => applyStageFilter('отправка_бесплатных_лидов')}>
+                      Отправка бесплатных лидов
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => applyStageFilter('null_stage')}>
+                      Без стадии
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableHead>
               <TableHead>ID беседы</TableHead>
-              <TableHead>Время</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+            <TableHead>Время</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
             {conversations.map((conversation) => {
               const role = getRoleFromBotAlias(conversation.bot_alias);
               
               return (
-                <TableRow
+            <TableRow
                   key={conversation.conversation_id}
-                  className="cursor-pointer hover:bg-muted/50">
-                  <TableCell>
-                    <Dialog>
-                      <DialogTrigger asChild>
+              className="cursor-pointer hover:bg-muted/50">
+              <TableCell>
+                <Dialog>
+                  <DialogTrigger asChild>
                         <Button 
                           variant="secondary" 
                           size="sm" 
                           className="w-[80px]"
                           onClick={() => handleChatClick(conversation)}
                         >
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          Чат
-                        </Button>
-                      </DialogTrigger>
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Чат
+                    </Button>
+                  </DialogTrigger>
                       <DialogContent className="sm:max-w-[500px] md:max-w-[600px] lg:max-w-[800px] w-full p-4">
                         {loadingMessages ? (
                           <div className="flex h-96 items-center justify-center">
@@ -306,21 +424,21 @@ export default function ChatsPage() {
                             />
                           </>
                         )}
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
+                  </DialogContent>
+                </Dialog>
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant="secondary"
                       className={getRoleBadgeStyles(role)}>
                       {role === 'manager' ? 'Менеджер' : 'Продавец'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
+                </Badge>
+              </TableCell>
+              <TableCell>
                     {conversation.username ? (
-                      <Link href="#" className="text-blue-600 hover:text-blue-800">
+                <Link href="#" className="text-blue-600 hover:text-blue-800">
                         {conversation.username}
-                      </Link>
+                </Link>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
@@ -329,26 +447,26 @@ export default function ChatsPage() {
                     <span className="text-muted-foreground">
                       {conversation.bot_alias}
                     </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant="secondary"
                       className={getStageBadgeStyles(conversation.stage)}>
                       {getFormattedStage(conversation.stage)}
-                    </Badge>
-                  </TableCell>
+                </Badge>
+              </TableCell>
                   <TableCell className="font-mono">{conversation.conversation_id}</TableCell>
-                  <TableCell className="text-muted-foreground">
+              <TableCell className="text-muted-foreground">
                     {formatDate(conversation.last_created_at)}
-                  </TableCell>
-                </TableRow>
+              </TableCell>
+            </TableRow>
               );
             })}
-          </TableBody>
-        </Table>
+        </TableBody>
+      </Table>
       </div>
       
-      {loading && navigationMode === 'loadmore' && (
+      {isLoadingMore && navigationMode === 'loadMore' && (
         <div className="flex justify-center my-4">
           <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
         </div>

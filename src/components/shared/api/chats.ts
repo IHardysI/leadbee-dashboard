@@ -31,16 +31,35 @@ export interface ConversationDetailResponse {
   messages: ConversationMessage[];
 }
 
-export const getConversationsList = async (page: number = 1, limit: number = 10): Promise<ConversationsResponse> => {
+export const getConversationsList = async ({
+  page = 1, 
+  limit = 10, 
+  filter = {}
+}: {
+  page?: number;
+  limit?: number;
+  filter?: Record<string, any>;
+}): Promise<ConversationsResponse> => {
   const offset = (page - 1) * limit;
   try {
-    const { data } = await axios.get(`${CHATS_BASE_URL}/coversation/list`, { 
-      params: { 
-        limit, 
-        offset,
-        ts: new Date().getTime() 
-      } 
+    // Prepare the params object - now simplified since we're using client-side filtering
+    const params: Record<string, any> = { 
+      limit, 
+      offset,
+      ts: new Date().getTime()
+    };
+    
+    // Add any other filter parameters except stage (handled on client side)
+    Object.entries(filter).forEach(([key, value]) => {
+      if (key !== 'stage') {
+        params[key] = value;
+      }
     });
+    
+    console.log('API call with params:', params);
+    
+    const { data } = await axios.get(`${CHATS_BASE_URL}/coversation/list`, { params });
+    console.log('API response total:', data.total_count);
     return data;
   } catch (error) {
     console.error("Error fetching conversations:", error);
