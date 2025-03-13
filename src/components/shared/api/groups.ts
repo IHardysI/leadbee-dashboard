@@ -40,3 +40,17 @@ export const changeParsingStatus = async (groupId: string, parsingStatus: boolea
   );
   return data;
 };
+
+export const parseParticipants = async (groupId: string): Promise<any> => {
+  try {
+    const { data } = await axios.post(
+      `${GROUPS_BASE_URL}/parse_participants`,
+      { group_id: groupId },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    return data;
+  } catch (error) {
+    console.error("Error parsing participants:", error);
+    throw error;
+  }
+};

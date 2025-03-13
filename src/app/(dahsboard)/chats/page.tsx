@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -10,10 +11,25 @@ import {
   TableRow,
   TableHeader,
 } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
-import { MessageSquare } from 'lucide-react';
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { MessageSquare, Loader2, User, Bot } from 'lucide-react';
 import Link from 'next/link';
 import { ChatDialog } from '@/components/ui/ChatDialog/index';
+import { 
+  getConversationsList, 
+  getConversationById, 
+  Conversation, 
+  ConversationMessage 
+} from '@/components/shared/api/chats';
+import PaginationUniversal from '@/components/widgets/PaginationUniversal';
+
+interface ChatMessage {
+  id: string;
+  content: string;
+  timestamp: string;
+  isBot: boolean;
+  senderName: string;
+}
 
 interface Chat {
   id: string;
@@ -22,73 +38,168 @@ interface Chat {
   status: 'sent' | 'replied' | 'read';
   userId: string;
   timestamp: string;
-  messages: {
-    id: string;
-    content: string;
-    timestamp: string;
-    isBot: boolean;
-  }[];
+  messages: ChatMessage[];
 }
 
+// Unified chat message display
+const EnhancedChatDialog = ({ messages, botName, userName }: { 
+  messages: ChatMessage[], 
+  botName: string, 
+  userName: string 
+}) => {
+  return (
+    <div className="flex flex-col h-[70vh] relative">
+      {/* Chat header with user info - fixed at top */}
+      <div className="flex justify-between items-center py-3 px-4 border-b sticky top-0 bg-white z-20 shadow-sm">
+        <div className="flex items-center space-x-2">
+          <div className="bg-blue-100 p-1 rounded-full">
+            <User className="h-5 w-5 text-blue-600" />
+          </div>
+          <span className="font-medium text-blue-800">{userName || 'Клиент'}</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className="font-medium text-teal-800">{botName}</span>
+          <div className="bg-teal-100 p-1 rounded-full">
+            <Bot className="h-5 w-5 text-teal-600" />
+          </div>
+        </div>
+      </div>
+
+      {/* Message list - scrollable area */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {messages.map((message) => (
+          <div 
+            key={message.id} 
+            className={`flex ${message.isBot ? 'justify-start' : 'justify-end'}`}
+          >
+            <div className={`max-w-[75%] p-3 rounded-lg shadow-sm ${message.isBot 
+              ? 'bg-gray-100 text-gray-800 border-l-4 border-blue-400 mr-auto' 
+              : 'bg-teal-50 text-teal-800 border-r-4 border-teal-400 ml-auto'}`}
+            >
+              <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+              <div className="text-xs text-gray-500 mt-1 text-right">
+                {new Date(message.timestamp).toLocaleString('ru-RU', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  day: '2-digit',
+                  month: '2-digit'
+                })}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export default function ChatsPage() {
-  const chats: Chat[] = [
-    {
-      id: '1',
-      role: 'manager',
-      username: 'leadbee_roman',
-      status: 'sent',
-      userId: '7700129272',
-      timestamp: '2024-12-20T12:09:31.568000',
-      messages: [
-        {
-          id: '1',
-          content:
-            'Здравствуйте! Я представляю компанию LeadBee. Заинтересованы в сотрудничестве?',
-          timestamp: '2024-12-20T12:09:31.568000',
-          isBot: true,
-        },
-        {
-          id: '2',
-          content: 'Добрый день! Да, расскажите подробнее',
-          timestamp: '2024-12-20T12:10:15.000000',
-          isBot: false,
-        },
-        {
-          id: '3',
-          content:
-            'Мы предлагаем инновационные решения для автоматизации продаж. Могу я рассказать о наших услугах?',
-          timestamp: '2024-12-20T12:11:00.000000',
-          isBot: true,
-        },
-      ],
-    },
-    {
-      id: '2',
-      role: 'manager',
-      username: 'stacyrubik',
-      status: 'replied',
-      userId: '209476372',
-      timestamp: '2024-11-22T09:56:13.361000',
-      messages: [
-        {
-          id: '1',
-          content:
-            'Приветствую! Хотели бы обсудить возможности нашей платформы?',
-          timestamp: '2024-11-22T09:56:13.361000',
-          isBot: true,
-        },
-      ],
-    },
-    {
-      id: '3',
-      role: 'seller',
-      username: 'stasy_unite',
-      status: 'replied',
-      userId: '185258316',
-      timestamp: '2024-11-14T14:20:33.665000',
-      messages: [],
-    },
-  ];
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [conversationMessages, setConversationMessages] = useState<ChatMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [navigationMode, setNavigationMode] = useState<'pagination' | 'loadmore'>('pagination');
+  const chatsPerPage = 15;
+
+  // Calculate total pages based on total count
+  const totalPages = Math.ceil(totalCount / chatsPerPage);
+
+  useEffect(() => {
+    const fetchConversations = async () => {
+      try {
+        setLoading(true);
+        const data = await getConversationsList(currentPage, chatsPerPage);
+        
+        if (navigationMode === 'pagination') {
+          setConversations(data.conversations);
+        } else {
+          // In load more mode, append the new conversations to existing ones
+          setConversations(prev => {
+            const newConversations = data.conversations.filter(
+              (conversation: Conversation) => !prev.some(existing => existing.conversation_id === conversation.conversation_id)
+            );
+            return [...prev, ...newConversations];
+          });
+        }
+        
+        // Set total count from the API response
+        if (data.total_count !== undefined) {
+          setTotalCount(data.total_count);
+        }
+        
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching conversations:', err);
+        setError('Failed to load conversations');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchConversations();
+  }, [currentPage, navigationMode, chatsPerPage]);
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setNavigationMode('pagination');
+    setCurrentPage(page);
+  };
+
+  // Handle "Load More" button click
+  const handleLoadMore = () => {
+    setNavigationMode('loadmore');
+    setCurrentPage(prev => prev + 1);
+  };
+
+  // Convert API messages to chat display format
+  const convertToDialogMessages = (messages: ConversationMessage[]): ChatMessage[] => {
+    return messages.map((message, index) => {
+      const senderName = message.is_bot_message 
+        ? message.bot_alias
+        : message.username || 'Неизвестно';
+        
+      return {
+        id: index.toString(),
+        content: message.text,
+        timestamp: message.created_at,
+        isBot: !message.is_bot_message, // Inverted: false = bot message (right), true = user message (left)
+        senderName
+      };
+    });
+  };
+
+  const handleChatClick = async (conversation: Conversation) => {
+    try {
+      setSelectedConversation(conversation);
+      setLoadingMessages(true);
+      
+      const response = await getConversationById(conversation.conversation_id);
+      const formattedMessages = convertToDialogMessages(response.messages);
+      
+      // Sort messages chronologically for enhanced chat (oldest first)
+      formattedMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      
+      setConversationMessages(formattedMessages);
+    } catch (err) {
+      console.error('Error fetching conversation messages:', err);
+      // Fallback to last message if we can't get the full conversation
+      setConversationMessages([{
+        id: '1',
+        content: conversation.last_message,
+        timestamp: conversation.last_created_at,
+        isBot: false,
+        senderName: conversation.bot_alias
+      }]);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -101,7 +212,7 @@ export default function ChatsPage() {
     });
   };
 
-  const getRoleBadgeStyles = (role: Chat['role']) => {
+  const getRoleBadgeStyles = (role: string) => {
     switch (role) {
       case 'manager':
         return 'bg-teal-100 text-teal-800 hover:bg-teal-200';
@@ -112,106 +223,146 @@ export default function ChatsPage() {
     }
   };
 
-  const getStatusBadgeStyles = (status: Chat['status']) => {
-    switch (status) {
-      case 'sent':
-        return 'bg-orange-100 text-orange-800';
-      case 'replied':
-        return 'bg-blue-100 text-blue-800';
-      case 'read':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const getStageBadgeStyles = (stage: string | null) => {
+    if (!stage) return 'bg-gray-100 text-gray-800';
+    
+    if (stage.includes('отправка')) {
+      return 'bg-blue-100 text-blue-800';
+    } else if (stage.includes('убеждение')) {
+      return 'bg-orange-100 text-orange-800';
+    } else {
+      return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getStatusText = (status: Chat['status']) => {
-    switch (status) {
-      case 'sent':
-        return 'Отправлено сообщение';
-      case 'replied':
-        return 'Ответил';
-      case 'read':
-        return 'Прочитал';
-      default:
-        return status;
-    }
+  const getFormattedStage = (stage: string | null): string => {
+    if (!stage) return 'Нет стадии';
+    return stage;
   };
 
-  const getRoleText = (role: Chat['role']) => {
-    switch (role) {
-      case 'manager':
-        return 'Менеджер';
-      case 'seller':
-        return 'Продавец';
-      default:
-        return role;
-    }
+  const getRoleFromBotAlias = (botAlias: string): 'manager' | 'seller' => {
+    return botAlias.includes('Leadbee') ? 'manager' : 'seller';
   };
+
+  if (loading && navigationMode === 'pagination') return (
+    <div className="flex h-screen w-full items-center justify-center">
+      <Loader2 className="animate-spin h-10 w-10 text-muted-foreground" />
+    </div>
+  );
+  if (error) return <div className="p-4 text-red-500">{error}</div>;
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[100px]">Переписка</TableHead>
-            <TableHead>Роль</TableHead>
-            <TableHead>Имя пользователя</TableHead>
-            <TableHead>Статус</TableHead>
-            <TableHead>ID пользователя</TableHead>
-            <TableHead>Время</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {chats.map((chat) => (
-            <TableRow
-              key={chat.id}
-              className="cursor-pointer hover:bg-muted/50">
-              <TableCell>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="secondary" size="sm" className="w-[80px]">
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Чат
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px] md:max-w-[600px] lg:max-w-[800px] w-full p-0">
-                    <ChatDialog
-                      username={chat.username}
-                      userId={chat.userId}
-                      role={chat.role}
-                      messages={chat.messages}
-                    />
-                  </DialogContent>
-                </Dialog>
-              </TableCell>
-              <TableCell>
-                <Badge
-                  variant="secondary"
-                  className={getRoleBadgeStyles(chat.role)}>
-                  {getRoleText(chat.role)}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Link href="#" className="text-blue-600 hover:text-blue-800">
-                  {chat.username}
-                </Link>
-              </TableCell>
-              <TableCell>
-                <Badge
-                  variant="secondary"
-                  className={getStatusBadgeStyles(chat.status)}>
-                  {getStatusText(chat.status)}
-                </Badge>
-              </TableCell>
-              <TableCell className="font-mono">{chat.userId}</TableCell>
-              <TableCell className="text-muted-foreground">
-                {formatDate(chat.timestamp)}
-              </TableCell>
+    <div className="space-y-4">
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[100px]">Переписка</TableHead>
+              <TableHead>Роль</TableHead>
+              <TableHead>Клиент</TableHead>
+              <TableHead>Бот</TableHead>
+              <TableHead>Стадия</TableHead>
+              <TableHead>ID беседы</TableHead>
+              <TableHead>Время</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {conversations.map((conversation) => {
+              const role = getRoleFromBotAlias(conversation.bot_alias);
+              
+              return (
+                <TableRow
+                  key={conversation.conversation_id}
+                  className="cursor-pointer hover:bg-muted/50">
+                  <TableCell>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="secondary" 
+                          size="sm" 
+                          className="w-[80px]"
+                          onClick={() => handleChatClick(conversation)}
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Чат
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[500px] md:max-w-[600px] lg:max-w-[800px] w-full p-4">
+                        {loadingMessages ? (
+                          <div className="flex h-96 items-center justify-center">
+                            <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <>
+                            <DialogHeader>
+                              <DialogTitle>
+                                Переписка с {selectedConversation?.username || 'Клиентом'}
+                              </DialogTitle>
+                            </DialogHeader>
+                            <EnhancedChatDialog 
+                              messages={conversationMessages}
+                              botName={selectedConversation?.bot_alias || 'Бот'}
+                              userName={selectedConversation?.username || 'Клиент'}
+                            />
+                          </>
+                        )}
+                      </DialogContent>
+                    </Dialog>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="secondary"
+                      className={getRoleBadgeStyles(role)}>
+                      {role === 'manager' ? 'Менеджер' : 'Продавец'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {conversation.username ? (
+                      <Link href="#" className="text-blue-600 hover:text-blue-800">
+                        {conversation.username}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-muted-foreground">
+                      {conversation.bot_alias}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="secondary"
+                      className={getStageBadgeStyles(conversation.stage)}>
+                      {getFormattedStage(conversation.stage)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="font-mono">{conversation.conversation_id}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(conversation.last_created_at)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+      
+      {loading && navigationMode === 'loadmore' && (
+        <div className="flex justify-center my-4">
+          <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+        </div>
+      )}
+      
+      {totalCount > 0 && (
+        <PaginationUniversal 
+          currentPage={currentPage} 
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          onLoadMore={handleLoadMore}
+          showLoadMore={currentPage < totalPages}
+        />
+      )}
     </div>
   );
 }

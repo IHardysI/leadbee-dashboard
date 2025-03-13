@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { PlusCircle, UserPlus, Search, Pencil, CheckCircle, XCircle, SlidersHorizontal, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { getGroupsList, createGroup, changeParsingStatus, getGroupDetails } from "@/components/shared/api/groups"
+import { getGroupsList, createGroup, changeParsingStatus, getGroupDetails, parseParticipants } from "@/components/shared/api/groups"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -82,6 +82,7 @@ export default function GroupsPage() {
   const [navigationMode, setNavigationMode] = useState<'pagination' | 'loadmore'>('pagination');
 
   const [detailedGroup, setDetailedGroup] = useState<DetailedGroup | null>(null);
+  const [isParsingParticipants, setIsParsingParticipants] = useState<boolean>(false);
 
   const filteredGroups = groups.filter((group) =>
     group.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -260,6 +261,27 @@ export default function GroupsPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleParseParticipants = async (groupId: string) => {
+    try {
+      setIsParsingParticipants(true);
+      await parseParticipants(groupId);
+      toast({ 
+        title: "Парсинг участников запущен", 
+        description: "Парсинг участников группы успешно запущен. Это может занять некоторое время.",
+        variant: "default" 
+      });
+    } catch (error) {
+      console.error("Error parsing participants:", error);
+      toast({ 
+        title: "Ошибка", 
+        description: "Не удалось запустить парсинг участников", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsParsingParticipants(false);
     }
   };
 
@@ -627,7 +649,25 @@ export default function GroupsPage() {
                 </TableBody>
               </Table>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 items-center justify-between">
+              <div className="flex flex-wrap gap-2">
+                <Button 
+                  onClick={() => handleParseParticipants(selectedGroup.id)}
+                  disabled={isParsingParticipants}
+                >
+                  {isParsingParticipants ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Запуск парсинга...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Начать парсинг участников
+                    </>
+                  )}
+                </Button>
+              </div>
               <Button onClick={() => { setSelectedGroup(null); setDetailedGroup(null); }}>Закрыть</Button>
             </DialogFooter>
           </DialogContent>
