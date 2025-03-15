@@ -83,6 +83,9 @@ export default function GroupsPage() {
 
   const [detailedGroup, setDetailedGroup] = useState<DetailedGroup | null>(null);
   const [isParsingParticipants, setIsParsingParticipants] = useState<boolean>(false);
+  const [parsedParticipants, setParsedParticipants] = useState<string[]>([]);
+  const [parsingProgress, setParsingProgress] = useState<{total: number; current: number} | null>(null);
+  const [parsingInterval, setParsingInterval] = useState<NodeJS.Timeout | null>(null);
 
   const filteredGroups = groups.filter((group) =>
     group.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -243,6 +246,17 @@ export default function GroupsPage() {
   };
 
   const handleGroupSelect = async (group: Group) => {
+    // First, clean up any existing parsing processes before changing groups
+    if (parsingInterval) {
+      clearInterval(parsingInterval);
+      setParsingInterval(null);
+    }
+    
+    // Reset participant-related states when selecting a new group
+    setIsParsingParticipants(false);
+    setParsedParticipants([]);
+    setParsingProgress(null);
+    
     setSelectedGroup(group);
     
     try {
@@ -265,14 +279,81 @@ export default function GroupsPage() {
   };
 
   const handleParseParticipants = async (groupId: string) => {
+    // Clean up any existing interval first
+    if (parsingInterval) {
+      clearInterval(parsingInterval);
+      setParsingInterval(null);
+    }
+    
     try {
       setIsParsingParticipants(true);
+      setParsedParticipants([]);
+      setParsingProgress({ total: 0, current: 0 });
+      
+      // Start parsing
       await parseParticipants(groupId);
+      
       toast({ 
         title: "Парсинг участников запущен", 
-        description: "Парсинг участников группы успешно запущен. Это может занять некоторое время.",
+        description: "Парсинг будет показан в реальном времени.",
         variant: "default" 
       });
+      
+      // Track the parsing completion state to prevent duplicate toasts
+      let hasShownCompletionToast = false;
+      
+      // Set up polling for updates
+      const intervalId = setInterval(async () => {
+        try {
+          // Check if the component is still mounted with this specific group
+          if (!selectedGroup || selectedGroup.id !== groupId) {
+            clearInterval(intervalId);
+            return;
+          }
+          
+          const response = await getGroupDetails(groupId);
+          if (response.group && response.group.participants) {
+            const newParticipants = response.group.participants;
+            setParsedParticipants(newParticipants);
+            
+            // Update detailed group with the latest participants
+            setDetailedGroup(prevGroup => {
+              if (!prevGroup || prevGroup.id !== groupId) return prevGroup;
+              return {
+                ...prevGroup,
+                participants: newParticipants,
+                participants_parsing_status: response.group.participants_parsing_status
+              };
+            });
+            
+            // If parsing is complete, stop polling
+            if (response.group.participants_parsing_status === 'done' && !hasShownCompletionToast) {
+              hasShownCompletionToast = true; // Prevent duplicate toasts
+              
+              clearInterval(intervalId);
+              setParsingInterval(null);
+              setIsParsingParticipants(false);
+              
+              toast({ 
+                title: "Парсинг участников завершен", 
+                description: `Найдено ${newParticipants.length} участников.`,
+                variant: "default" 
+              });
+            } else if (response.group.participants_parsing_status !== 'done') {
+              // Update progress if possible
+              setParsingProgress(prev => ({
+                total: response.group.participants_count || prev?.total || 0,
+                current: newParticipants.length
+              }));
+            }
+          }
+        } catch (error) {
+          console.error("Error polling for participants updates:", error);
+        }
+      }, 2000); // Poll every 2 seconds
+      
+      setParsingInterval(intervalId);
+      
     } catch (error) {
       console.error("Error parsing participants:", error);
       toast({ 
@@ -280,10 +361,29 @@ export default function GroupsPage() {
         description: "Не удалось запустить парсинг участников", 
         variant: "destructive" 
       });
-    } finally {
       setIsParsingParticipants(false);
     }
   };
+
+  // Cleanup interval when component unmounts or dialog closes
+  useEffect(() => {
+    return () => {
+      if (parsingInterval) {
+        clearInterval(parsingInterval);
+      }
+    };
+  }, [parsingInterval]);
+  
+  // Also clean up when a dialog is closed
+  useEffect(() => {
+    if (!selectedGroup && parsingInterval) {
+      clearInterval(parsingInterval);
+      setParsingInterval(null);
+      setIsParsingParticipants(false);
+      setParsedParticipants([]);
+      setParsingProgress(null);
+    }
+  }, [selectedGroup, parsingInterval]);
 
   if (loading) {
     return (
@@ -614,25 +714,69 @@ export default function GroupsPage() {
                     );
                   })}
                   
-                  {/* Show participants information if available */}
-                  {detailedGroup?.participants && detailedGroup.participants.length > 0 && (
-                    <>
-                      <TableRow>
-                        <TableCell colSpan={2} className="bg-gray-100 font-bold text-center">Участники группы ({detailedGroup.participants.length})</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell colSpan={2} className="whitespace-normal">
-                          <div className="flex flex-wrap gap-1 max-h-[200px] overflow-y-auto">
-                            {detailedGroup.participants.map((participant) => (
-                              <Badge key={participant} variant="outline" className="whitespace-normal">
-                                {participant}
-                              </Badge>
-                            ))}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    </>
-                  )}
+                  {/* Start of participants section */}
+                  {/* Show participants information */}
+                  <TableRow>
+                    <TableCell colSpan={2} className="bg-gray-100 font-bold text-center">
+                      Участники группы {isParsingParticipants && parsedParticipants.length > 0 
+                        ? `(${parsedParticipants.length})` 
+                        : detailedGroup?.participants?.length
+                          ? `(${detailedGroup.participants.length})` 
+                          : ''}
+                      
+                      {isParsingParticipants && (
+                        <span className="ml-2 text-amber-600 text-sm font-normal">
+                          <Loader2 className="inline-block animate-spin h-4 w-4 mr-1" />
+                          Парсинг в процессе...
+                          {parsingProgress && (
+                            <span className="ml-1">
+                              {parsingProgress.current} 
+                              {parsingProgress.total > 0 ? ` из ~${parsingProgress.total}` : ''}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  
+                  <TableRow>
+                    <TableCell colSpan={2} className="whitespace-normal">
+                      {/* Show progress bar if parsing */}
+                      {isParsingParticipants && parsingProgress && parsingProgress.total > 0 && (
+                        <div className="w-full h-2 bg-gray-200 rounded-full mb-3">
+                          <div 
+                            className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min(100, (parsingProgress.current / parsingProgress.total) * 100)}%` }}
+                          />
+                        </div>
+                      )}
+                      
+                      {/* If we have participants to show, either from parsing or already loaded */}
+                      {((isParsingParticipants && parsedParticipants.length > 0) || 
+                        (detailedGroup?.participants && detailedGroup.participants.length > 0)) ? (
+                        <div className="flex flex-wrap gap-1 max-h-[200px] overflow-y-auto">
+                          {(isParsingParticipants ? parsedParticipants : detailedGroup?.participants || []).map((participant) => (
+                            <Badge key={participant} variant="outline" className="whitespace-normal">
+                              {participant}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : isParsingParticipants ? (
+                        /* Show loading placeholder badges if parsing just started */
+                        <div className="flex flex-wrap gap-1">
+                          <Badge variant="outline" className="bg-gray-100 animate-pulse whitespace-normal">Загрузка...</Badge>
+                          <Badge variant="outline" className="bg-gray-100 animate-pulse whitespace-normal">Загрузка...</Badge>
+                          <Badge variant="outline" className="bg-gray-100 animate-pulse whitespace-normal">Загрузка...</Badge>
+                        </div>
+                      ) : (
+                        /* Show empty state if no participants and not parsing */
+                        <div className="text-center py-4 text-gray-500">
+                          Участники не загружены. Нажмите "Начать парсинг участников" для их загрузки.
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  {/* End of participants section */}
                   
                   {/* Fallback to old fields if detailed data isn't available */}
                   {!detailedGroup?.analysis_result?.requests_count && selectedGroup.analysisResult?.requests_count && Object.keys(selectedGroup.analysisResult?.requests_count || {}).map((key) => {
