@@ -8,6 +8,7 @@ import {
   MessageCircle,
   UsersRound,
   Target,
+  SearchCheck,
 } from "lucide-react";
 
 import { NavMain } from "@/components/ui/nav-main";
@@ -20,7 +21,6 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 
-// Аб'яднаны спіс пунктаў меню без групавання "Главная" і "Настройки"
 const data = {
   navMain: [
     {
@@ -47,6 +47,11 @@ const data = {
       title: "Группы",
       url: "/groups",
       icon: UsersRound,
+    },
+    {
+      title: "Авто группы",
+      url: "/auto-groups",
+      icon: SearchCheck,
     },
     {
       title: "Лиды",
