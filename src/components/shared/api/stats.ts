@@ -71,18 +71,26 @@ function formatDateForAPI(date: Date): string {
 
 /**
  * Fetches statistics for LeadBee services
- * @param dateRange Optional date range to filter results
+ * @param dateFilter Optional date filter, can be either a single date or a date range
  * @returns Promise with service statistics array
  */
-export async function getServiceStats(dateRange?: [Date, Date]): Promise<ServiceStats[]> {
+export async function getServiceStats(dateFilter?: Date | [Date, Date]): Promise<ServiceStats[]> {
   try {
     let url = 'https://python-platforma-leadbee-freelance.reflectai.pro/leadbee/service_stats';
     
-    // Add date range parameters if provided
-    if (dateRange) {
+    // Add date parameters if provided
+    if (dateFilter) {
       const params = new URLSearchParams();
-      params.append('start_date', formatDateForAPI(dateRange[0]));
-      params.append('end_date', formatDateForAPI(dateRange[1]));
+      
+      if (Array.isArray(dateFilter)) {
+        // Date range: start_date and end_date
+        params.append('start_date', formatDateForAPI(dateFilter[0]));
+        params.append('end_date', formatDateForAPI(dateFilter[1]));
+      } else {
+        // Single date
+        params.append('date', formatDateForAPI(dateFilter));
+      }
+      
       url = `${url}?${params.toString()}`;
     }
     

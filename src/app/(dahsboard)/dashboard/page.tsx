@@ -1,6 +1,6 @@
 "use client"
 
-import { DollarSign, Users, CreditCard } from "lucide-react"
+import { DollarSign, Users, CreditCard, Clock } from "lucide-react"
 import { useEffect, useState, useCallback } from "react"
 import { getLeadsCount } from "@/components/shared/api/analytics"
 import { getServiceStats, ConversationStagesCount, getTotalCounts, TotalCounts } from "@/components/shared/api/stats"
@@ -9,6 +9,7 @@ import { ClientActivityChart } from "@/components/features/dashboard/components/
 import { StatCard } from "@/components/features/dashboard/components/stats-card"
 import { StatsList } from "@/components/features/dashboard/components/stats-list"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { Button } from "@/components/ui/button"
 
 // Default stats data (will be replaced with API data)
 const defaultStatsData = [
@@ -67,6 +68,7 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<[Date, Date]>([new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), new Date()])
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [filterMode, setFilterMode] = useState<'single' | 'range'>('range')
+  const [isAllTime, setIsAllTime] = useState<boolean>(false)
   const [activityData, setActivityData] = useState([
     { name: "Загрузка данных...", value: 0 },
   ])
@@ -78,26 +80,36 @@ export default function DashboardPage() {
   const [isLoadingChart, setIsLoadingChart] = useState(true)
   const [dataTimestamp, setDataTimestamp] = useState<number>(Date.now())
 
+  // Get current date filter based on filterMode
+  const getCurrentDateFilter = useCallback(() => {
+    if (isAllTime) {
+      return undefined; // No date filter for "All time"
+    }
+    return filterMode === 'range' ? dateRange : selectedDate;
+  }, [filterMode, dateRange, selectedDate, isAllTime]);
+
   // Fetch leads count data
   const fetchLeadsCount = useCallback(async () => {
     try {
-      // Get leads count without date filtering
-      const data = await getLeadsCount();
+      // Get leads count with date filtering
+      const dateFilter = getCurrentDateFilter();
+      const data = await getLeadsCount(dateFilter);
       const count = data.leads_count;
       setLeadsCount(count.toLocaleString());
     } catch (error: any) {
       console.error('Error fetching leads count:', error);
       setLeadsCount('Error');
     }
-  }, []);
+  }, [getCurrentDateFilter]);
 
   // Fetch conversation stages data for chart
   const fetchConversationStages = useCallback(async () => {
     setIsLoadingChart(true);
     try {
-      // Fetch service stats without date filtering
-      console.log('Fetching service stats without date filtering');
-      const stats = await getServiceStats();
+      // Fetch service stats with date filtering
+      const dateFilter = getCurrentDateFilter();
+      console.log('Fetching service stats with date filter:', dateFilter);
+      const stats = await getServiceStats(dateFilter);
       console.log('Received stats:', stats);
       
       if (stats && stats.length > 0) {
@@ -113,23 +125,21 @@ export default function DashboardPage() {
     } finally {
       setIsLoadingChart(false);
     }
-  }, []);
+  }, [getCurrentDateFilter]);
 
   // Fetch total counts data
   const fetchTotalCounts = useCallback(async () => {
     setIsLoadingStats(true);
     try {
-      // Fetch all data without date filtering
-      console.log('Fetching total counts without date filtering');
-      const data = await getTotalCounts();
+      // Fetch all data with date filtering
+      const dateFilter = getCurrentDateFilter();
+      console.log('Fetching total counts with date filter:', dateFilter);
+      const data = await getTotalCounts(dateFilter);
       console.log('Received total counts:', data);
       
       // Set total counts for stats cards
       setTotalLeads(data.total_leads_count);
       setTotalSendedLeads(data.total_sended_leads);
-      
-      // Set mock total money earned (this would be replaced with real API data)
-      setTotalMoneyEarned(data.total_leads_count * 100); // Mock calculation
       
       // Process categories data for list
       const categoriesStats = processAllStats(data);
@@ -140,16 +150,21 @@ export default function DashboardPage() {
     } finally {
       setIsLoadingStats(false);
     }
-  }, []);
+  }, [getCurrentDateFilter]);
 
-  // Load all data on initial load only
-  useEffect(() => {
+  // Fetch all data
+  const fetchAllData = useCallback(() => {
     fetchLeadsCount();
     fetchConversationStages();
     fetchTotalCounts();
     // Update timestamp to force cache refresh
     setDataTimestamp(Date.now());
   }, [fetchLeadsCount, fetchConversationStages, fetchTotalCounts]);
+
+  // Load all data on initial load
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
   // Process all stats for display in the list - no header for categories
   const processAllStats = (data: TotalCounts): StatsItem[] => {
@@ -224,30 +239,80 @@ export default function DashboardPage() {
     }
   };
 
-  // Handle date range change
-  const handleDateRangeChange = (range: [Date, Date] | null) => {
-    if (range) {
-      console.log("Date range changed:", range.map(d => d.toISOString()));
-      setDateRange(range);
-      setFilterMode('range');
-      // Calendar changes no longer trigger data refetching
+  // Handle "All time" button click
+  const handleAllTimeClick = () => {
+    // Toggle the "All time" state if clicked again
+    if (isAllTime) {
+      setIsAllTime(false);
+      // Refresh data with current date filter when exiting "All time" mode
+      fetchAllData();
+    } else {
+      setIsAllTime(true);
+      // Refetch data without date filtering
+      fetchAllData();
     }
   };
 
-  // Handle single date change
+  // Force exit from "All time" mode and apply the current filter immediately
+  const forceExitAllTimeMode = () => {
+    if (isAllTime) {
+      console.log("Forcing exit from All time mode");
+      // Set state synchronously to ensure immediate update
+      setIsAllTime(false);
+      return true;
+    }
+    return false;
+  };
+
+  // Handle date range change with reliable "All time" mode exit
+  const handleDateRangeChange = (range: [Date, Date] | null) => {
+    if (range) {
+      console.log("Date range changed:", range.map(d => d.toISOString()));
+      
+      // Force exit from "All time" mode first
+      forceExitAllTimeMode();
+      
+      // Update state values for the range
+      setDateRange(range);
+      setFilterMode('range');
+      
+      // Immediately fetch data with the new filter
+      console.log("Fetching data with new date range");
+      fetchAllData();
+    }
+  };
+
+  // Handle single date change with reliable "All time" mode exit
   const handleDateChange = (date: Date | null) => {
     if (date) {
       console.log("Single date changed:", date.toISOString());
+      
+      // Force exit from "All time" mode first
+      forceExitAllTimeMode();
+      
+      // Update state values for the single date
       setSelectedDate(date);
       setFilterMode('single');
-      // Calendar changes no longer trigger data refetching
+      
+      // Immediately fetch data with the new filter
+      console.log("Fetching data with new single date");
+      fetchAllData();
     }
   };
 
   // Toggle between single date and date range filtering
   const toggleFilterMode = () => {
-    setFilterMode(prev => prev === 'range' ? 'single' : 'range');
-    // Filter mode changes no longer trigger data refetching
+    const newMode = filterMode === 'range' ? 'single' : 'range';
+    
+    // If we're in "All time" mode, exit it
+    if (isAllTime) {
+      setIsAllTime(false);
+    }
+    
+    setFilterMode(newMode);
+    
+    // Always refresh data when toggling filter mode
+    fetchAllData();
   };
 
   return (
@@ -256,6 +321,15 @@ export default function DashboardPage() {
         <h2 className="text-xl font-semibold">Статистика Лидов</h2>
         <div className="flex items-center">
           <span className="text-sm text-muted-foreground mr-2">Выберите период:</span>
+          <Button 
+            variant={isAllTime ? "default" : "outline"}
+            size="sm"
+            onClick={handleAllTimeClick}
+            className={`mr-2 ${isAllTime ? 'bg-black text-white hover:bg-black/90 hover:text-white' : ''}`}
+          >
+            <Clock className="h-4 w-4 mr-1" />
+            За все время
+          </Button>
           <DateRangePicker
             value={dateRange}
             onChange={handleDateRangeChange}
@@ -263,6 +337,7 @@ export default function DashboardPage() {
             selectedDate={selectedDate}
             filterMode={filterMode}
             onFilterModeChange={toggleFilterMode}
+            isAllTime={isAllTime}
           />
         </div>
       </div>

@@ -23,11 +23,34 @@ export const getFreelancersCount = async (date: string = ''): Promise<any> => {
 
 /**
  * Retrieves the total count of leads.
- * Optionally, a specific date can be provided to filter the results.
+ * Optionally, a date filter can be provided to filter the results.
+ * The date filter can be either a single Date or a date range [startDate, endDate].
  */
-export const getLeadsCount = async (date: string = ''): Promise<any> => {
-  const param = (date && date.trim() !== '') ? date.trim() : 'overall';
-  const { data } = await axios.get(`${API_BASE_URL}/analytics/leads_count`, { params: { date: param } });
+export const getLeadsCount = async (dateFilter?: Date | [Date, Date]): Promise<any> => {
+  let param: string;
+
+  if (!dateFilter) {
+    param = 'overall';
+  } else if (Array.isArray(dateFilter)) {
+    // Date range
+    const startDate = dateFilter[0].toISOString().split('T')[0];
+    const endDate = dateFilter[1].toISOString().split('T')[0];
+    const { data } = await axios.get(`${API_BASE_URL}/analytics/leads_count`, { 
+      params: { 
+        start_date: startDate,
+        end_date: endDate
+      } 
+    });
+    console.log('getLeadsCount (using date range):', startDate, endDate, data);
+    return data;
+  } else {
+    // Single date
+    param = dateFilter.toISOString().split('T')[0];
+  }
+
+  const { data } = await axios.get(`${API_BASE_URL}/analytics/leads_count`, { 
+    params: { date: param } 
+  });
   console.log('getLeadsCount (using param):', param, data);
   return data;
 };
