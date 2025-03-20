@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Breadcrumb,
@@ -22,7 +22,8 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
+// Separate component that uses useSearchParams()
+function DashboardLayoutContent({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const segments = pathname.split("/").filter(Boolean);
@@ -180,5 +181,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="p-2">{children}</div>
       </SidebarInset>
     </SidebarProvider>
+  );
+}
+
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
+  return (
+    <Suspense fallback={<div>Загрузка...</div>}>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </Suspense>
   );
 }
