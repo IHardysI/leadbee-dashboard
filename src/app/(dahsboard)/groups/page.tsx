@@ -401,6 +401,10 @@ export default function GroupsPage() {
             <PlusCircle className="h-4 w-4 mr-2" />
             Добавить
           </Button>
+          <Button className="bg-cYellow/90 hover:bg-cYellow flex-grow sm:flex-grow-0">
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Добавить чаты массово
+          </Button>
           <Button variant="outline" className="flex-grow sm:flex-grow-0">
             <UserPlus className="h-4 w-4 mr-2" />
             Присоединение аккаунтов

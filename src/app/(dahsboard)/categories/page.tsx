@@ -4,14 +4,16 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { PlusCircle, Search, Pencil, Loader2 } from "lucide-react"
+import { PlusCircle, Search, Pencil, Loader2, BarChart } from "lucide-react"
 import { getCategoriesList, upsertCategory } from "@/components/shared/api/categories"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import PaginationUniversal from "@/components/widgets/PaginationUniversal"
+import { useRouter } from "next/navigation"
 
 export default function CategoriesPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<any | null>(null);
@@ -65,6 +67,13 @@ export default function CategoriesPage() {
     setLoadedCount(categoriesPerPage);
   };
 
+  // Function to create URL-friendly slug from category name
+  const createCategorySlug = (name: string) => {
+    // If name is empty or undefined, return a default
+    if (!name) return 'category';
+    return encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'));
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-4">
@@ -90,7 +99,7 @@ export default function CategoriesPage() {
               <TableHead className="w-[30%] whitespace-normal break-words">Название категории</TableHead>
               <TableHead className="w-[25%] whitespace-normal break-words">Количество сообщений в категории</TableHead>
               <TableHead className="w-[30%] whitespace-normal break-words">Статус (Отслеживается / Не отслеживается)</TableHead>
-              <TableHead className="w-[15%] whitespace-normal break-words">Редактировать</TableHead>
+              <TableHead className="w-[15%] whitespace-normal break-words">Действия</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -100,9 +109,18 @@ export default function CategoriesPage() {
                 <TableCell className="whitespace-normal break-words">-</TableCell>
                 <TableCell className="whitespace-normal break-words">-</TableCell>
                 <TableCell className="whitespace-normal break-words" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" onClick={() => { setEditCategory(category); setEditCategoryPrompt(category.prompt || ''); }}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center space-x-2">
+                    <Button variant="ghost" onClick={() => { setEditCategory(category); setEditCategoryPrompt(category.prompt || ''); }}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      className="text-blue-600 hover:text-blue-800"
+                      onClick={() => router.push(`/categories/${category.id}/statistics?name=${createCategorySlug(category.name || 'Категория')}`)}
+                    >
+                      <BarChart className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
