@@ -448,7 +448,7 @@ export default function GroupsPage() {
               <TableHead className="whitespace-normal">Количество подписчиков</TableHead>
               <TableHead className="whitespace-normal">Какие аккаунты вступили</TableHead>
               <TableHead className="w-40 whitespace-normal">Всего / Потенциальных лидов</TableHead>
-              <TableHead className="whitespace-normal">Анализ</TableHead>
+              <TableHead className="whitespace-normal">Парсинг</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

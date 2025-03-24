@@ -20,7 +20,7 @@ export const signUpSchema = object({
   fullName: getNameSchema(),          // Праверка поўнага імя
   email: getEmailSchema(),            // Праверка email
   password: getPasswordSchema("password"), // Праверка пароля
-  role: z.enum(['admin', 'moderator']).default('moderator'), // Роля карыстальніка, па змоўчанні "manager"
+  role: z.enum(['admin', 'manager']).default('manager'), // Роль пользователя, по умолчанию "manager"
 });
 
 export const signInSchema = object({

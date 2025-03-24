@@ -20,58 +20,74 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { useUser } from "@clerk/nextjs";
 
-const data = {
-  navMain: [
-    {
-      title: "Дашборд",
-      url: "/dashboard",
-      icon: LayoutDashboard,
-    },
-    {
-      title: "Клиенты",
-      url: "/clients",
-      icon: Users,
-    },
-    {
-      title: "Категории",
-      url: "/categories",
-      icon: FolderTree,
-    },
-    {
-      title: "Чаты",
-      url: "/chats",
-      icon: MessageCircle,
-    },
-    {
-      title: "Группы",
-      url: "/groups",
-      icon: UsersRound,
-    },
-    {
-      title: "Авто группы",
-      url: "/auto-groups",
-      icon: SearchCheck,
-    },
-    {
-      title: "Лиды",
-      url: "/leads",
-      icon: Target,
-    },
-    {
-      title: "Пользователи",
-      url: "/users",
-      icon: Users,
-    },
-  ],
-};
+// Define all navigation items
+const allNavItems = [
+  {
+    title: "Дашборд",
+    url: "/dashboard",
+    icon: LayoutDashboard,
+    allowedRoles: ["admin", "manager"], // Both admin and manager can access
+  },
+  {
+    title: "Клиенты",
+    url: "/clients",
+    icon: Users,
+    allowedRoles: ["admin", "manager"], // Both admin and manager can access
+  },
+  {
+    title: "Категории",
+    url: "/categories",
+    icon: FolderTree,
+    allowedRoles: ["admin"], // Only admin can access
+  },
+  {
+    title: "Чаты",
+    url: "/chats",
+    icon: MessageCircle,
+    allowedRoles: ["admin", "manager"], // Both admin and manager can access
+  },
+  {
+    title: "Группы",
+    url: "/groups",
+    icon: UsersRound,
+    allowedRoles: ["admin"], // Only admin can access
+  },
+  {
+    title: "Авто группы",
+    url: "/auto-groups",
+    icon: SearchCheck,
+    allowedRoles: ["admin"], // Only admin can access
+  },
+  {
+    title: "Лиды",
+    url: "/leads",
+    icon: Target,
+    allowedRoles: ["admin"], // Only admin can access
+  },
+  {
+    title: "Пользователи",
+    url: "/users",
+    icon: Users,
+    allowedRoles: ["admin"], // Only admin can access
+  },
+];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user } = useUser();
+  const userRole = user?.publicMetadata?.role as string || "manager";
+
+  // Filter navigation items based on user role
+  const navItems = allNavItems.filter(item => 
+    item.allowedRoles.includes(userRole)
+  );
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader />
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={navItems} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

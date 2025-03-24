@@ -15,7 +15,7 @@ export default async function UsersTablePage() {
     username: u.username || '',
     fullName: `${u.firstName || ''} ${u.lastName || ''}`.trim(),
     email: u.emailAddresses?.[0]?.emailAddress || '',
-    role: u.publicMetadata && u.publicMetadata.role ? (u.publicMetadata.role as "admin" | "moderator") : 'moderator'
+    role: u.publicMetadata && u.publicMetadata.role ? (u.publicMetadata.role as "admin" | "manager") : 'manager'
   }));
 
   // In a real application, these would be derived from session/auth context

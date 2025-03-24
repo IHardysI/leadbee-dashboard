@@ -68,7 +68,7 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<[Date, Date]>([new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), new Date()])
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [filterMode, setFilterMode] = useState<'single' | 'range'>('range')
-  const [isAllTime, setIsAllTime] = useState<boolean>(false)
+  const [isAllTime, setIsAllTime] = useState<boolean>(true)
   const [activityData, setActivityData] = useState([
     { name: "Загрузка данных...", value: 0 },
   ])

@@ -20,13 +20,13 @@ export type User = {
   username: string;
   fullName: string;
   email: string;
-  role: "admin" | "moderator";
+  role: "admin" | "manager";
 };
 
 type UserTableProps = {
   users: User[];
   onDeleteUser: (id: string) => void;
-  onSetUserRole: (userId: string, role: "admin" | "moderator") => void;
+  onSetUserRole: (userId: string, role: "admin" | "manager") => void;
   currentUserId: string;
   isCurrentUserAdmin: boolean;
 };
@@ -64,7 +64,7 @@ export default function UserTable({
                   `w-32 display flex justify-center items-center ${user.role === "admin" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}`
                 }
               >
-                {user.role}
+                {user.role === "admin" ? "Админ" : "Модератор"}
               </Badge>
             </TableCell>
             <TableCell>
@@ -72,10 +72,10 @@ export default function UserTable({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-32"
-                  onClick={() => onSetUserRole(user.id, user.role === 'moderator' ? 'admin' : 'moderator')}
+                  className="w-40 px-2 py-1 text-xs whitespace-normal h-auto min-h-[2rem]"
+                  onClick={() => onSetUserRole(user.id, user.role === 'manager' ? 'admin' : 'manager')}
                 >
-                  {user.role === 'moderator' ? 'Make Admin' : 'Make Moderator'}
+                  {user.role === 'manager' ? 'Сделать админом' : 'Сделать модератором'}
                 </Button>
                 <Button
                   variant="ghost"
@@ -84,7 +84,7 @@ export default function UserTable({
                   onClick={() => onDeleteUser(user.id)}
                 >
                   <Trash2 className="h-4 w-4" />
-                  <span className="sr-only">Delete</span>
+                  <span className="sr-only">Удалить</span>
                 </Button>
               </div>
             </TableCell>

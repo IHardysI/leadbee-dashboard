@@ -30,7 +30,7 @@ export default function AddUserDialog({ onClose, onAddUser }: AddUserDialogProps
       fullName: "",
       email: "",
       password: "",
-      role: "moderator",
+      role: "manager",
     },
   });
 
@@ -126,7 +126,7 @@ export default function AddUserDialog({ onClose, onAddUser }: AddUserDialogProps
             className="w-full p-2 border border-gray-300 rounded"
           >
             <option value="admin">Администратор</option>
-            <option value="moderator">Модератор</option>
+            <option value="manager">Менеджер</option>
           </select>
         </div>
         <Button type="submit" className="w-full" disabled={pending}>

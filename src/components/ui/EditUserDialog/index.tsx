@@ -98,7 +98,7 @@ export default function EditUserDialog({
               disabled={!canEdit}
               className="w-full p-2 border rounded"
             >
-              <option value="admin">Админ</option>
+              <option value="admin">Администратор</option>
               <option value="manager">Менеджер</option>
             </select>
           </div>

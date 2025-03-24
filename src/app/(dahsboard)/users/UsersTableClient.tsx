@@ -41,7 +41,7 @@ export default function UsersTableClient({ users, currentUserId, isCurrentUserAd
     console.log('Editing user', user);
   };
 
-  const handleSetUserRole = async (userId: string, role: "admin" | "moderator") => {
+  const handleSetUserRole = async (userId: string, role: "admin" | "manager") => {
     try {
       const res = await fetch('/api/set-user-role', {
         method: 'PUT',
