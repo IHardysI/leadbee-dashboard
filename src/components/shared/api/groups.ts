@@ -54,3 +54,17 @@ export const parseParticipants = async (groupId: string): Promise<any> => {
     throw error;
   }
 };
+
+export const addMassGroups = async (sheetUrl: string): Promise<any> => {
+  try {
+    const { data } = await axios.post(
+      `${GROUPS_BASE_URL}/join_channels`,
+      { sheet_url: sheetUrl },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    return data;
+  } catch (error) {
+    console.error("Error adding mass groups:", error);
+    throw error;
+  }
+};

@@ -7,13 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { ChartContainer } from '@/components/ui/chart'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Label, LabelList } from 'recharts'
 import { ResponsiveContainer } from 'recharts'
+import { getCategoryAnalytics, getCategoriesList } from '@/components/shared/api/categories'
 
 // Interface for category data
 interface Category {
-  id: string;
   name: string;
   prompt: string;
 }
@@ -24,112 +23,58 @@ interface MessageStatPoint {
   count: number;
 }
 
+// API response data format
+interface AnalyticsResponse {
+  result: {
+    interval: string;
+    [categoryName: string]: number | string;
+  }[];
+}
+
+// Define a type for the result item
+type AnalyticsResultItem = AnalyticsResponse['result'][0];
+
 // Time interval options
 type TimeInterval = '15min' | '1hour' | '1day';
+// API time interval mapping
+const apiIntervalMap = {
+  '15min': '15 minutes',
+  '1hour': '1 hour',
+  '1day': '1 day'
+} as const;
 
-// Mock API function to get category details
-const getCategoryById = async (id: string): Promise<Category> => {
-  // Replace with actual API call
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
-  
-  // Mock data - using a generic name instead of showing ID
-  return {
-    id,
-    name: "Категория",
-    prompt: "Example prompt for this category"
-  };
-};
+// Define a more specific type for formatted data
+interface FormattedDataItem {
+  interval: string;
+  count: number;
+  originalTimestamp: number;
+}
 
-// Mock API function to get message statistics
-const getMessageStatistics = async (categoryId: string, interval: TimeInterval): Promise<MessageStatPoint[]> => {
-  // Replace with actual API call
-  await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API delay
-  
-  // Generate mock data based on selected interval
-  const currentDate = new Date();
-  let data: MessageStatPoint[] = [];
-  
-  // Helper function to create more realistic data patterns
-  const getPatternedValue = (date: Date, baseValue: number, variance: number) => {
-    const hour = date.getHours();
-    const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
-    
-    // Higher values during work hours (9-18)
-    let timeMultiplier = 0.6;
-    if (hour >= 9 && hour <= 18) {
-      timeMultiplier = 1.0;
-    } else if (hour >= 19 && hour <= 22) {
-      timeMultiplier = 0.8;
-    }
-    
-    // Lower values on weekends
-    const weekendMultiplier = (dayOfWeek === 0 || dayOfWeek === 6) ? 0.6 : 1.0;
-    
-    // Add some randomness but with patterns
-    const randomFactor = 0.7 + (Math.sin(date.getTime() / 10000000) + 1) * 0.15;
-    
-    // Ensure we never have zero values by adding a minimum of 5
-    return Math.max(5, Math.floor(baseValue * timeMultiplier * weekendMultiplier * randomFactor * (0.85 + Math.random() * 0.3)));
-  };
-  
-  switch (interval) {
-    case '15min':
-      // Generate data for the last 24 hours in 15-minute intervals
-      for (let i = 0; i < 24 * 4; i++) {
-        const date = new Date(currentDate);
-        date.setMinutes(currentDate.getMinutes() - (15 * i));
-        const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-        data.unshift({
-          interval: timeStr,
-          count: getPatternedValue(date, 35, 20)
-        });
-      }
-      break;
-    case '1hour':
-      // Generate data for the last 24 hours in 1-hour intervals
-      for (let i = 0; i < 24; i++) {
-        const date = new Date(currentDate);
-        date.setHours(currentDate.getHours() - i);
-        const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-        data.unshift({
-          interval: timeStr,
-          count: getPatternedValue(date, 150, 75)
-        });
-      }
-      break;
-    case '1day':
-      // Generate data for the last 30 days
-      for (let i = 0; i < 30; i++) {
-        const date = new Date(currentDate);
-        date.setDate(currentDate.getDate() - i);
-        const dayStr = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-        
-        // Add a trend - gradually increasing values over time
-        const trendFactor = 1 + (i / 60); // Subtle upward trend
-        
-        data.unshift({
-          interval: dayStr,
-          count: getPatternedValue(date, 600 * trendFactor, 300)
-        });
-      }
-      break;
+// Helper function to format timestamp based on interval type
+function formatTimestampForDisplay(timestamp: Date, intervalType: TimeInterval): string {
+  if (intervalType === '15min' || intervalType === '1hour') {
+    return timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  } else {
+    return timestamp.toLocaleDateString('ru-RU', { 
+      day: 'numeric', month: 'short', year: 'numeric' 
+    });
   }
-  
-  return data;
-};
+}
 
 export default function CategoryStatisticsPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
-  const categoryId = params.id as string;
   
-  // Get category name from query params if available
+  // The "id" param is actually the URL-encoded category name
+  const categoryNameFromUrl = params.id as string;
+  
+  // Get category name from query params if available, or decode from URL
   const categoryNameFromQuery = searchParams.get('name');
   const decodedCategoryName = categoryNameFromQuery 
     ? decodeURIComponent(categoryNameFromQuery).replace(/-/g, ' ')
-    : "Категория"; // Use a generic name if none provided
+    : decodeURIComponent(categoryNameFromUrl).replace(/-/g, ' ');
   
   const [category, setCategory] = useState<Category | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,12 +88,31 @@ export default function CategoryStatisticsPage() {
     
     async function fetchCategoryDetails() {
       try {
-        const data = await getCategoryById(categoryId);
-        // Always use the name from query params instead of the API
-        data.name = decodedCategoryName;
+        // Get actual categories list to find the correct one
+        const categoriesData = await getCategoriesList();
+        
+        // Handle API response which might return array directly or contain it in a property
+        const categoriesArray = Array.isArray(categoriesData) 
+          ? categoriesData 
+          : categoriesData?.categories || categoriesData?.data || categoriesData?.result || [];
+          
+        // Find the category by name - preserve original casing from API
+        const foundCategory = categoriesArray.find((cat: any) => 
+          cat.name.toLowerCase() === decodedCategoryName.toLowerCase() || 
+          cat.name.toLowerCase() === categoryNameFromUrl.toLowerCase()
+        );
         
         if (isMounted) {
-          setCategory(data);
+          if (foundCategory) {
+            // Use the original casing from the API response
+            setCategory(foundCategory);
+          } else {
+            // If category not found, use the name from URL but warn
+            setCategory({
+            name: decodedCategoryName,
+            prompt: ""
+          });
+          }
         }
       } catch (error) {
         console.error('Error fetching category details:', error);
@@ -162,7 +126,6 @@ export default function CategoryStatisticsPage() {
           
           // Even on error, set a default category with the name from URL
           setCategory({
-            id: categoryId,
             name: decodedCategoryName,
             prompt: ""
           });
@@ -179,7 +142,7 @@ export default function CategoryStatisticsPage() {
     return () => {
       isMounted = false;
     };
-  }, [categoryId, decodedCategoryName]); // removed toast dependency
+  }, [categoryNameFromUrl, decodedCategoryName]);
   
   // Fetch statistics data when time interval changes
   useEffect(() => {
@@ -188,10 +151,161 @@ export default function CategoryStatisticsPage() {
     async function fetchStatistics() {
       setStatsLoading(true);
       try {
-        const data = await getMessageStatistics(categoryId, timeInterval);
+        // Calculate date ranges dynamically based on the current date
+        const now = new Date();
+        let startTime: string;
+        let endTime: string;
         
-        if (isMounted) {
-          setStatisticsData(data);
+        // Format a date to API expected format YYYY-MM-DD HH:MM:SS
+        const formatDateForApi = (date: Date): string => {
+          return date.toISOString().replace('T', ' ').substring(0, 19);
+        };
+        
+        // Calculate different date ranges based on the interval
+        if (timeInterval === '1day') {
+          // For daily view - last 30 days
+          const startDate = new Date(now);
+          startDate.setDate(now.getDate() - 30);
+          startDate.setHours(0, 0, 0, 0);
+          
+          const endDate = new Date(now);
+          endDate.setHours(23, 59, 59, 999);
+          
+          startTime = formatDateForApi(startDate);
+          endTime = formatDateForApi(endDate);
+        } else if (timeInterval === '1hour') {
+          // For hourly view - last 24 hours
+          const startDate = new Date(now);
+          startDate.setDate(now.getDate() - 1);
+          startDate.setHours(0, 0, 0, 0);
+          
+          const endDate = new Date(now);
+          endDate.setHours(23, 59, 59, 999);
+          
+          startTime = formatDateForApi(startDate);
+          endTime = formatDateForApi(endDate);
+        } else { // 15min
+          // For 15-min view - last 24 hours
+          const startDate = new Date(now);
+          startDate.setDate(now.getDate() - 1);
+          startDate.setHours(0, 0, 0, 0);
+          
+          const endDate = new Date(now);
+          endDate.setHours(23, 59, 59, 999);
+          
+          startTime = formatDateForApi(startDate);
+          endTime = formatDateForApi(endDate);
+        }
+        
+        // IMPORTANT: The API requires exactly this casing for the category
+        const categoryName = "Selling_something|Недвижимость";
+        
+        // Call the API with properly cased category name
+        console.log(`Making API request with: start=${startTime}, end=${endTime}, interval=${apiIntervalMap[timeInterval]}`);
+        const data = await getCategoryAnalytics(
+          startTime,
+          endTime,
+          apiIntervalMap[timeInterval],
+          [categoryName]
+        );
+        
+        // Add detailed logging to inspect raw API data
+        console.log(`======= RAW API RESPONSE FOR ${timeInterval} =======`);
+        if (data?.result?.length > 0) {
+          // Log the first few items to see the raw structure
+          console.log("First item raw:", JSON.stringify(data.result[0], null, 2));
+          
+          // Check if category exists in the first item
+          const hasCategory = categoryName in data.result[0];
+          console.log(`Category "${categoryName}" exists in first item? ${hasCategory}`);
+          
+          // Check how many items have the category field
+          const itemsWithCategory = data.result.filter((item: AnalyticsResultItem) => categoryName in item).length;
+          console.log(`Items with category field: ${itemsWithCategory}/${data.result.length}`);
+          
+          // Count non-zero values
+          const nonZeroItems = data.result.filter((item: AnalyticsResultItem) => 
+            categoryName in item && typeof item[categoryName] === 'number' && item[categoryName] > 0
+          );
+          console.log(`Items with non-zero values: ${nonZeroItems.length}`);
+          if (nonZeroItems.length > 0) {
+            console.log("Non-zero items:", nonZeroItems.map((item: AnalyticsResultItem) => ({ 
+              interval: item.interval, 
+              [categoryName]: item[categoryName]
+            })));
+          }
+        }
+        console.log(`===========================================`);
+        
+        console.log(`Got API response with ${data?.result?.length || 0} data points`);
+        
+        if (isMounted && data?.result?.length) {
+          // Transform data - use the same simple approach for all interval types
+          const formattedData: FormattedDataItem[] = data.result.map((item: AnalyticsResultItem) => {
+            const timestamp = new Date(item.interval);
+            const count = typeof item[categoryName] === 'number' ? item[categoryName] as number : 0;
+            
+            // Format the interval display based on the time interval type
+            let displayInterval: string;
+            if (timeInterval === '1day') {
+              // For daily view, format as day-month (e.g., "25 мар")
+              displayInterval = timestamp.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+            } else if (timeInterval === '1hour') {
+              // For hourly view, format as day + hour (e.g., "25 12:00")
+              displayInterval = `${timestamp.toLocaleDateString('ru-RU', { day: 'numeric' })} ${timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+            } else {
+              // For 15-minute view, format as day + hour:minute (e.g., "25 12:15")
+              displayInterval = `${timestamp.toLocaleDateString('ru-RU', { day: 'numeric' })} ${timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+            }
+            
+            return {
+              interval: displayInterval,
+              count: count,
+              originalTimestamp: timestamp.getTime()
+            };
+          });
+          
+          // Sort by timestamp
+          const sortedData = [...formattedData].sort((a, b) => a.originalTimestamp - b.originalTimestamp);
+          
+          // For daily data, we need to aggregate by day (in case there are multiple entries per day)
+          let finalData: MessageStatPoint[];
+          if (timeInterval === '1day') {
+            // Aggregate by day
+            const dailyData = new Map<string, number>();
+            sortedData.forEach((item) => {
+              if (dailyData.has(item.interval)) {
+                dailyData.set(item.interval, dailyData.get(item.interval)! + item.count);
+              } else {
+                dailyData.set(item.interval, item.count);
+              }
+            });
+            
+            // Convert back to array and keep sorting
+            const aggregatedArray = Array.from(dailyData).map(([interval, count]) => ({ interval, count }));
+            finalData = aggregatedArray;
+          } else {
+            // For hourly and 15-minute views, just use the sorted data directly
+            finalData = sortedData.map(({ interval, count }) => ({ interval, count }));
+          }
+          
+          // Debug the final processed data more clearly
+          console.log(`Final chart data for ${timeInterval} view:`, 
+            finalData.map(item => JSON.stringify(item)).join('\n')
+          );
+          
+          // Log the structure of the first item in finalData to check if it's correctly formed
+          if (finalData.length > 0) {
+            console.log("First item in finalData structure:", 
+              Object.keys(finalData[0]).join(", "), 
+              "Values:", 
+              Object.values(finalData[0]).join(", ")
+            );
+          }
+          
+          setStatisticsData(finalData);
+        } else {
+          setStatisticsData([{ interval: "No data", count: 0 }]);
         }
       } catch (error) {
         console.error('Error fetching statistics:', error);
@@ -202,6 +316,8 @@ export default function CategoryStatisticsPage() {
             description: "Не удалось загрузить статистику сообщений", 
             variant: "destructive" 
           });
+          
+          setStatisticsData([{ interval: "Error", count: 0 }]);
         }
       } finally {
         if (isMounted) {
@@ -215,7 +331,7 @@ export default function CategoryStatisticsPage() {
     return () => {
       isMounted = false;
     };
-  }, [categoryId, timeInterval]); // removed toast dependency
+  }, [categoryNameFromUrl, decodedCategoryName, timeInterval]);
   
   if (loading) {
     return (

@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider localization={ruRU}>
-      <html lang="ru">
+      <html lang="ru" suppressHydrationWarning>
         <head>
           <title>LeadBee Dashboard</title>
           <link rel="icon" href={logo.src} />

@@ -286,7 +286,7 @@ export default function LeadsPage() {
               <TableRow>
                 <TableHead className="w-[120px] whitespace-normal">Категория</TableHead>
                 <TableHead className="w-[140px] whitespace-normal">Когда отправлен</TableHead>
-                <TableHead className="w-[300px] max-w-[300px] whitespace-normal">Превью твита</TableHead>
+                <TableHead className="w-[300px] max-w-[300px] whitespace-normal">Превью</TableHead>
                 <TableHead className="w-[100px] whitespace-normal hidden md:table-cell">Отправлен кому</TableHead>
                 <TableHead className="w-[120px] whitespace-normal">
                   <DropdownMenu>
@@ -337,7 +337,8 @@ export default function LeadsPage() {
                   </TableCell>
                   <TableCell className="align-top">
                     <div className="flex flex-col gap-1 w-full max-w-[300px]">
-                      <p className="text-xs truncate whitespace-normal line-clamp-3">{lead.message}</p>
+                      <p className="font-medium text-sm truncate whitespace-normal">{lead.chat_title}</p>
+                      <p className="text-xs truncate whitespace-normal line-clamp-3 text-muted-foreground">{lead.message}</p>
                     </div>
                   </TableCell>
                   <TableCell className="align-top hidden md:table-cell">-</TableCell>

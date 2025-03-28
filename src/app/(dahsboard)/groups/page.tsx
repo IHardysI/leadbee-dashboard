@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { PlusCircle, UserPlus, Search, Pencil, CheckCircle, XCircle, SlidersHorizontal, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { getGroupsList, createGroup, changeParsingStatus, getGroupDetails, parseParticipants } from "@/components/shared/api/groups"
+import { getGroupsList, createGroup, changeParsingStatus, getGroupDetails, parseParticipants, addMassGroups } from "@/components/shared/api/groups"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -67,7 +67,10 @@ export default function GroupsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [isAddGroupOpen, setIsAddGroupOpen] = useState<boolean>(false);
+  const [isAddMassGroupsOpen, setIsAddMassGroupsOpen] = useState<boolean>(false);
   const [newGroupLink, setNewGroupLink] = useState<string>("");
+  const [massGroupsSheetUrl, setMassGroupsSheetUrl] = useState<string>("https://docs.google.com/spreadsheets/d/1kHRYBmYDYYlEcjvUuoNitJ-LgZiw6KkHDN638VbcTQ4/edit?usp=sharing");
+  const [isSheetUrlEditable, setIsSheetUrlEditable] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -401,7 +404,7 @@ export default function GroupsPage() {
             <PlusCircle className="h-4 w-4 mr-2" />
             Добавить
           </Button>
-          <Button className="bg-cYellow/90 hover:bg-cYellow flex-grow sm:flex-grow-0">
+          <Button className="bg-cYellow/90 hover:bg-cYellow flex-grow sm:flex-grow-0" onClick={() => setIsAddMassGroupsOpen(true)}>
             <PlusCircle className="h-4 w-4 mr-2" />
             Добавить чаты массово
           </Button>
@@ -840,6 +843,64 @@ export default function GroupsPage() {
               <Button className="bg-cYellow/90 hover:bg-cYellow flex items-center" onClick={handleAddGroup}>
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Добавить
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {isAddMassGroupsOpen && (
+        <Dialog open={true} onOpenChange={() => setIsAddMassGroupsOpen(false)}>
+          <DialogContent className="w-full max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Добавить группы массово</DialogTitle>
+              <DialogDescription>URL Google-таблицы со списком групп для добавления</DialogDescription>
+            </DialogHeader>
+            <div className="mt-4">
+              <div className="flex gap-2 items-center">
+                <Input
+                  placeholder="URL Google-таблицы"
+                  value={massGroupsSheetUrl}
+                  onChange={(e) => setMassGroupsSheetUrl(e.target.value)}
+                  className="flex-grow"
+                  disabled={!isSheetUrlEditable}
+                />
+                <Button 
+                  variant="outline" 
+                  className="whitespace-nowrap"
+                  onClick={() => setIsSheetUrlEditable(!isSheetUrlEditable)}
+                >
+                  {isSheetUrlEditable ? "Готово" : <><Pencil className="h-4 w-4 mr-2" /> Изменить</>}
+                </Button>
+              </div>
+            </div>
+            <DialogFooter className="mt-6">
+              <Button className="bg-cYellow/90 hover:bg-cYellow flex items-center" onClick={async () => {
+                try {
+                  const trimmedUrl = massGroupsSheetUrl.trim();
+                  if (!trimmedUrl) {
+                    toast({ title: "Ошибка", description: "URL не может быть пустым", variant: "destructive" });
+                    return;
+                  }
+
+                  toast({ title: "Загрузка", description: "Добавление групп начато...", variant: "default" });
+                  const response = await addMassGroups(trimmedUrl);
+                  
+                  if (response.status === "success") {
+                    toast({ title: "Успех", description: "Процесс добавления групп запущен", variant: "default" });
+                    setIsAddMassGroupsOpen(false);
+                    setIsSheetUrlEditable(false);
+                  } else {
+                    toast({ title: "Ошибка", description: response.message || "Не удалось добавить группы", variant: "destructive" });
+                  }
+                } catch (error: any) {
+                  console.error("Error adding mass groups:", error);
+                  let errMsg = error.response?.data?.message || "Не удалось добавить группы";
+                  toast({ title: "Ошибка", description: errMsg, variant: "destructive" });
+                }
+              }}>
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Добавить чаты массово из источника
               </Button>
             </DialogFooter>
           </DialogContent>

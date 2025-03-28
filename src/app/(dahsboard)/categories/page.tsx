@@ -34,6 +34,7 @@ export default function CategoriesPage() {
     (async () => {
       try {
         const data = await getCategoriesList();
+        console.log("DEBUG - Categories list response:", data);
         setCategories(data.categories);
       } catch (error) {
         console.error('Error fetching categories', error);
@@ -74,6 +75,18 @@ export default function CategoriesPage() {
     return encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'));
   };
 
+  // Function to prepare category name for stats page
+  const navigateToStats = (category: any) => {
+    // Preserve original casing in query parameter for the API
+    const originalName = category.name;
+    // Use lowercase version for the URL path
+    const categorySlug = createCategorySlug(originalName);
+    // Encode the original name with case preserved for the query parameter
+    const encodedOriginalName = encodeURIComponent(originalName);
+    
+    router.push(`/categories/${categorySlug}/statistics?name=${encodedOriginalName}`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-4">
@@ -104,7 +117,7 @@ export default function CategoriesPage() {
           </TableHeader>
           <TableBody>
             {displayedCategories.map((category) => (
-              <TableRow key={category.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setSelectedCategory(category)}>
+              <TableRow key={category.name} className="cursor-pointer hover:bg-gray-50" onClick={() => setSelectedCategory(category)}>
                 <TableCell className="whitespace-normal break-words">{category.name}</TableCell>
                 <TableCell className="whitespace-normal break-words">-</TableCell>
                 <TableCell className="whitespace-normal break-words">-</TableCell>
@@ -116,7 +129,7 @@ export default function CategoriesPage() {
                     <Button 
                       variant="ghost" 
                       className="text-blue-600 hover:text-blue-800"
-                      onClick={() => router.push(`/categories/${category.id}/statistics?name=${createCategorySlug(category.name || 'Категория')}`)}
+                      onClick={() => navigateToStats(category)}
                     >
                       <BarChart className="h-4 w-4" />
                     </Button>
