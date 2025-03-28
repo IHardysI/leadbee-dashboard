@@ -9,6 +9,7 @@ import {
   UsersRound,
   Target,
   SearchCheck,
+  UserCog,
 } from "lucide-react";
 
 import { NavMain } from "@/components/ui/nav-main";
@@ -58,6 +59,12 @@ const allNavItems = [
     title: "Авто группы",
     url: "/auto-groups",
     icon: SearchCheck,
+    allowedRoles: ["admin"], // Only admin can access
+  },
+  {
+    title: "Аккаунты",
+    url: "/accounts",
+    icon: UserCog,
     allowedRoles: ["admin"], // Only admin can access
   },
   {

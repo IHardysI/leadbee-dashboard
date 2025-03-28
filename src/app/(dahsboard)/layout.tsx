@@ -90,6 +90,7 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
     chats: "Чаты",
     groups: "Группы",
     "auto-groups": "Авто группы",
+    accounts: "Аккаунты",
     users: "Пользователи",
     "user-profile": "Профиль",
     "sign-in": "Вход",
