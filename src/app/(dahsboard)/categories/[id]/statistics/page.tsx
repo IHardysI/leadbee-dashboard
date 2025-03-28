@@ -36,30 +36,13 @@ type AnalyticsResultItem = AnalyticsResponse['result'][0];
 
 // Time interval options
 type TimeInterval = '15min' | '1hour' | '1day';
-// API time interval mapping
+
+// API interval mapping
 const apiIntervalMap = {
   '15min': '15 minutes',
   '1hour': '1 hour',
   '1day': '1 day'
-} as const;
-
-// Define a more specific type for formatted data
-interface FormattedDataItem {
-  interval: string;
-  count: number;
-  originalTimestamp: number;
-}
-
-// Helper function to format timestamp based on interval type
-function formatTimestampForDisplay(timestamp: Date, intervalType: TimeInterval): string {
-  if (intervalType === '15min' || intervalType === '1hour') {
-    return timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  } else {
-    return timestamp.toLocaleDateString('ru-RU', { 
-      day: 'numeric', month: 'short', year: 'numeric' 
-    });
-  }
-}
+};
 
 export default function CategoryStatisticsPage() {
   const params = useParams();
@@ -81,6 +64,7 @@ export default function CategoryStatisticsPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [timeInterval, setTimeInterval] = useState<TimeInterval>('1hour');
   const [statisticsData, setStatisticsData] = useState<MessageStatPoint[]>([]);
+  const [dateRangeText, setDateRangeText] = useState<string>('');
   
   // Fetch category details
   useEffect(() => {
@@ -142,170 +126,119 @@ export default function CategoryStatisticsPage() {
     return () => {
       isMounted = false;
     };
-  }, [categoryNameFromUrl, decodedCategoryName]);
+  }, [categoryNameFromUrl, decodedCategoryName, toast]);
   
-  // Fetch statistics data when time interval changes
+  // Fetch statistics data when time interval or category changes
   useEffect(() => {
+    if (!category?.name) return;
+    
     let isMounted = true;
+    setStatsLoading(true);
     
     async function fetchStatistics() {
-      setStatsLoading(true);
       try {
-        // Calculate date ranges dynamically based on the current date
+        // Calculate date ranges based on the selected interval
         const now = new Date();
-        let startTime: string;
-        let endTime: string;
+        let startDate = new Date();
+        let endDate = new Date(now);
         
-        // Format a date to API expected format YYYY-MM-DD HH:MM:SS
+        // Set up date ranges for different intervals
+        if (timeInterval === '15min' || timeInterval === '1hour') {
+          // Last 24 hours - but use full days
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - 1); // Go back 1 day
+          startDate.setHours(0, 0, 0, 0); // Set to 00:00:00
+          
+          endDate.setHours(23, 59, 59, 999); // Set to 23:59:59
+        } else {
+          // Last 30 days
+          startDate.setDate(now.getDate() - 30);
+          startDate.setHours(0, 0, 0, 0); // Already setting to 00:00:00
+          endDate.setHours(23, 59, 59, 999); // Already setting to 23:59:59
+        }
+        
+        // Format dates for API
         const formatDateForApi = (date: Date): string => {
           return date.toISOString().replace('T', ' ').substring(0, 19);
         };
         
-        // Calculate different date ranges based on the interval
-        if (timeInterval === '1day') {
-          // For daily view - last 30 days
-          const startDate = new Date(now);
-          startDate.setDate(now.getDate() - 30);
-          startDate.setHours(0, 0, 0, 0);
-          
-          const endDate = new Date(now);
-          endDate.setHours(23, 59, 59, 999);
-          
-          startTime = formatDateForApi(startDate);
-          endTime = formatDateForApi(endDate);
-        } else if (timeInterval === '1hour') {
-          // For hourly view - last 24 hours
-          const startDate = new Date(now);
-          startDate.setDate(now.getDate() - 1);
-          startDate.setHours(0, 0, 0, 0);
-          
-          const endDate = new Date(now);
-          endDate.setHours(23, 59, 59, 999);
-          
-          startTime = formatDateForApi(startDate);
-          endTime = formatDateForApi(endDate);
-        } else { // 15min
-          // For 15-min view - last 24 hours
-          const startDate = new Date(now);
-          startDate.setDate(now.getDate() - 1);
-          startDate.setHours(0, 0, 0, 0);
-          
-          const endDate = new Date(now);
-          endDate.setHours(23, 59, 59, 999);
-          
-          startTime = formatDateForApi(startDate);
-          endTime = formatDateForApi(endDate);
+        const startTime = formatDateForApi(startDate);
+        const endTime = formatDateForApi(endDate);
+        
+        // Add date range text for display
+        let rangeText = '';
+        if (timeInterval === '15min' || timeInterval === '1hour') {
+          rangeText = `Данные за последние 24 часа (${startDate.toLocaleDateString()} 00:00:00 - ${endDate.toLocaleDateString()} 23:59:59)`;
+        } else {
+          rangeText = `Данные за последние 30 дней (${startDate.toLocaleDateString()} 00:00:00 - ${endDate.toLocaleDateString()} 23:59:59)`;
         }
+        setDateRangeText(rangeText);
         
-        // IMPORTANT: The API requires exactly this casing for the category
-        const categoryName = "Selling_something|Недвижимость";
+        // Get API response
+        console.log(`Fetching analytics for category: ${category?.name}`);
+        console.log(`Time range: ${startTime} to ${endTime}, interval: ${apiIntervalMap[timeInterval]}`);
         
-        // Call the API with properly cased category name
-        console.log(`Making API request with: start=${startTime}, end=${endTime}, interval=${apiIntervalMap[timeInterval]}`);
         const data = await getCategoryAnalytics(
           startTime,
           endTime,
-          apiIntervalMap[timeInterval],
-          [categoryName]
+          apiIntervalMap[timeInterval] as "15 minutes" | "1 hour" | "1 day",
+          [category?.name || ""]
         );
         
-        // Add detailed logging to inspect raw API data
-        console.log(`======= RAW API RESPONSE FOR ${timeInterval} =======`);
-        if (data?.result?.length > 0) {
-          // Log the first few items to see the raw structure
-          console.log("First item raw:", JSON.stringify(data.result[0], null, 2));
+        // Detailed API response logging
+        console.log(`======= COMPLETE API RESPONSE FOR ${timeInterval} VIEW =======`);
+        console.log('API Response:', data);
+        if (data?.result) {
+          console.log(`Results count: ${data.result.length} data points`);
           
-          // Check if category exists in the first item
-          const hasCategory = categoryName in data.result[0];
-          console.log(`Category "${categoryName}" exists in first item? ${hasCategory}`);
-          
-          // Check how many items have the category field
-          const itemsWithCategory = data.result.filter((item: AnalyticsResultItem) => categoryName in item).length;
-          console.log(`Items with category field: ${itemsWithCategory}/${data.result.length}`);
-          
-          // Count non-zero values
-          const nonZeroItems = data.result.filter((item: AnalyticsResultItem) => 
-            categoryName in item && typeof item[categoryName] === 'number' && item[categoryName] > 0
-          );
-          console.log(`Items with non-zero values: ${nonZeroItems.length}`);
-          if (nonZeroItems.length > 0) {
-            console.log("Non-zero items:", nonZeroItems.map((item: AnalyticsResultItem) => ({ 
-              interval: item.interval, 
-              [categoryName]: item[categoryName]
-            })));
-          }
-        }
-        console.log(`===========================================`);
-        
-        console.log(`Got API response with ${data?.result?.length || 0} data points`);
-        
-        if (isMounted && data?.result?.length) {
-          // Transform data - use the same simple approach for all interval types
-          const formattedData: FormattedDataItem[] = data.result.map((item: AnalyticsResultItem) => {
-            const timestamp = new Date(item.interval);
-            const count = typeof item[categoryName] === 'number' ? item[categoryName] as number : 0;
+          if (data.result.length > 0) {
+            // Log first few results
+            console.log('First 3 data points:', data.result.slice(0, 3));
             
-            // Format the interval display based on the time interval type
-            let displayInterval: string;
-            if (timeInterval === '1day') {
-              // For daily view, format as day-month (e.g., "25 мар")
-              displayInterval = timestamp.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-            } else if (timeInterval === '1hour') {
-              // For hourly view, format as day + hour (e.g., "25 12:00")
-              displayInterval = `${timestamp.toLocaleDateString('ru-RU', { day: 'numeric' })} ${timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
-            } else {
-              // For 15-minute view, format as day + hour:minute (e.g., "25 12:15")
-              displayInterval = `${timestamp.toLocaleDateString('ru-RU', { day: 'numeric' })} ${timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
-            }
+            // Log fields available in the first item
+            const firstItem = data.result[0];
+            console.log('Fields in first data point:', Object.keys(firstItem));
             
-            return {
-              interval: displayInterval,
-              count: count,
-              originalTimestamp: timestamp.getTime()
-            };
-          });
-          
-          // Sort by timestamp
-          const sortedData = [...formattedData].sort((a, b) => a.originalTimestamp - b.originalTimestamp);
-          
-          // For daily data, we need to aggregate by day (in case there are multiple entries per day)
-          let finalData: MessageStatPoint[];
-          if (timeInterval === '1day') {
-            // Aggregate by day
-            const dailyData = new Map<string, number>();
-            sortedData.forEach((item) => {
-              if (dailyData.has(item.interval)) {
-                dailyData.set(item.interval, dailyData.get(item.interval)! + item.count);
-              } else {
-                dailyData.set(item.interval, item.count);
-              }
+            // Check for category field
+            console.log(`Category field "${category?.name || ""}" exists:`, category?.name ? (category.name in firstItem) : false);
+            
+            // Show all properties and their values for debugging
+            console.log('All properties of first item:');
+            Object.entries(firstItem).forEach(([key, value]: [string, any]) => {
+              console.log(`- ${key}: ${value} (type: ${typeof value})`);
             });
             
-            // Convert back to array and keep sorting
-            const aggregatedArray = Array.from(dailyData).map(([interval, count]) => ({ interval, count }));
-            finalData = aggregatedArray;
-          } else {
-            // For hourly and 15-minute views, just use the sorted data directly
-            finalData = sortedData.map(({ interval, count }) => ({ interval, count }));
+            // Check for non-zero values
+            if (category?.name) {
+              const categoryName = category.name;
+              const nonZeroItems = data.result.filter((item: AnalyticsResultItem) => 
+                typeof item[categoryName] === 'number' && item[categoryName] > 0
+              );
+              console.log(`Items with non-zero counts: ${nonZeroItems.length}`);
+              if (nonZeroItems.length > 0) {
+                console.log('Non-zero items:', nonZeroItems);
+              }
+            }
+
+            // Additional logging to see how many items have the category field vs don't have it
+            if (category?.name) {
+              const categoryName = category.name;
+              const itemsWithCategory = data.result.filter((item: AnalyticsResultItem) => 
+                categoryName in item
+              ).length;
+              console.log(`Items with category field: ${itemsWithCategory}/${data.result.length}`);
+              console.log(`Items without category field: ${data.result.length - itemsWithCategory}/${data.result.length}`);
+            }
           }
-          
-          // Debug the final processed data more clearly
-          console.log(`Final chart data for ${timeInterval} view:`, 
-            finalData.map(item => JSON.stringify(item)).join('\n')
-          );
-          
-          // Log the structure of the first item in finalData to check if it's correctly formed
-          if (finalData.length > 0) {
-            console.log("First item in finalData structure:", 
-              Object.keys(finalData[0]).join(", "), 
-              "Values:", 
-              Object.values(finalData[0]).join(", ")
-            );
-          }
-          
-          setStatisticsData(finalData);
+        }
+        console.log(`===========================================================`);
+        
+        if (isMounted && data?.result?.length) {
+          // Process the API response data
+          const processedData = processApiData(data, category?.name || "", timeInterval);
+          setStatisticsData(processedData);
         } else {
-          setStatisticsData([{ interval: "No data", count: 0 }]);
+          setStatisticsData([]);
         }
       } catch (error) {
         console.error('Error fetching statistics:', error);
@@ -316,8 +249,7 @@ export default function CategoryStatisticsPage() {
             description: "Не удалось загрузить статистику сообщений", 
             variant: "destructive" 
           });
-          
-          setStatisticsData([{ interval: "Error", count: 0 }]);
+          setStatisticsData([]);
         }
       } finally {
         if (isMounted) {
@@ -331,7 +263,72 @@ export default function CategoryStatisticsPage() {
     return () => {
       isMounted = false;
     };
-  }, [categoryNameFromUrl, decodedCategoryName, timeInterval]);
+  }, [category, timeInterval, toast]);
+  
+  // Process API data based on selected time interval
+  const processApiData = (data: AnalyticsResponse, categoryName: string, interval: TimeInterval): MessageStatPoint[] => {
+    if (!data.result || !data.result.length) return [];
+    
+    console.log(`Processing ${data.result.length} data points for interval: ${interval}`);
+    
+    // Map API data to chart format
+    const mappedData = data.result.map((item: AnalyticsResultItem) => {
+      const timestamp = new Date(item.interval);
+      const count = typeof item[categoryName] === 'number' ? item[categoryName] as number : 0;
+      
+      let displayInterval: string;
+      if (interval === '15min') {
+        // For 15min view, show date and time (DD.MM HH:MM)
+        const day = timestamp.getDate().toString().padStart(2, '0');
+        const month = (timestamp.getMonth() + 1).toString().padStart(2, '0');
+        const time = timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        displayInterval = `${day}.${month} ${time}`;
+      } else if (interval === '1hour') {
+        // For hourly view, show date and hour (DD.MM HH:00)
+        const day = timestamp.getDate().toString().padStart(2, '0');
+        const month = (timestamp.getMonth() + 1).toString().padStart(2, '0');
+        const hour = timestamp.getHours().toString().padStart(2, '0');
+        displayInterval = `${day}.${month} ${hour}:00`;
+      } else {
+        // For daily view, show date (DD MMM)
+        displayInterval = timestamp.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+        // Log to verify we're processing timestamps through end of day
+        if (count > 0) {
+          console.log(`Daily data point: ${displayInterval}, time: ${timestamp.toLocaleTimeString()}, count: ${count}`);
+        }
+      }
+      
+      return {
+        interval: displayInterval,
+        count: count,
+        // Store original timestamp for sorting
+        timestamp: timestamp.getTime()
+      };
+    });
+    
+    // Sort by timestamp
+    const sortedData = mappedData.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // For daily view, we might need to aggregate multiple entries per day
+    if (interval === '1day') {
+      const aggregatedData = new Map<string, number>();
+      
+      for (const item of sortedData) {
+        if (aggregatedData.has(item.interval)) {
+          aggregatedData.set(item.interval, aggregatedData.get(item.interval)! + item.count);
+        } else {
+          aggregatedData.set(item.interval, item.count);
+        }
+      }
+      
+      const finalData = Array.from(aggregatedData).map(([interval, count]) => ({ interval, count }));
+      console.log('Daily aggregated data:', finalData);
+      return finalData;
+    }
+    
+    // Return formatted data for chart (without timestamp property)
+    return sortedData.map(({ interval, count }) => ({ interval, count }));
+  };
   
   if (loading) {
     return (
@@ -356,6 +353,11 @@ export default function CategoryStatisticsPage() {
           <CardTitle>Количество сообщений по времени</CardTitle>
           <CardDescription>
             Статистика количества найденных сообщений в категории по временным интервалам
+            {dateRangeText && (
+              <div className="mt-2 text-xs font-medium text-muted-foreground">
+                {dateRangeText}
+              </div>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -371,7 +373,7 @@ export default function CategoryStatisticsPage() {
                 <div className="flex justify-center py-16">
                   <Loader2 className="animate-spin h-10 w-10 text-muted-foreground" />
                 </div>
-              ) : (
+              ) : statisticsData.length > 0 ? (
                 <div className="h-[400px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
@@ -384,8 +386,9 @@ export default function CategoryStatisticsPage() {
                         angle={-45} 
                         textAnchor="end"
                         height={80}
-                        interval={0}
-                        fontSize={10}
+                        // For 15min view, don't show all labels as it would be too crowded
+                        interval={timeInterval === '15min' ? 'preserveEnd' : timeInterval === '1hour' ? 1 : 0}
+                        fontSize={9}
                         tick={{ fill: '#666' }}
                       >
                         <Label value="Интервал" position="insideBottom" offset={-10} />
@@ -395,7 +398,7 @@ export default function CategoryStatisticsPage() {
                       </YAxis>
                       <Tooltip 
                         formatter={(value: number) => [`${value} сообщений`, 'Количество']}
-                        labelFormatter={(label: string) => `Время: ${label}`}
+                        labelFormatter={(label: string) => timeInterval === '1day' ? `Дата: ${label} (00:00-23:59)` : `Дата и время: ${label}`}
                         contentStyle={{ fontSize: '12px', borderRadius: '4px' }}
                       />
                       <Bar 
@@ -417,6 +420,10 @@ export default function CategoryStatisticsPage() {
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="flex justify-center items-center py-16 text-muted-foreground">
+                  <p>Нет данных для отображения</p>
                 </div>
               )}
             </TabsContent>
