@@ -36,6 +36,7 @@ interface Group {
   }
   location?: string
   parsing: "done" | "in progress" | "not started"
+  parsingForSearch: "done" | "in progress" | "not started"
   totalPrice?: number
   analysisTimeSeconds?: number
 }
@@ -46,6 +47,7 @@ interface DetailedGroup {
   telegram_id: number;
   join_link: string;
   parsing: boolean;
+  parsing_for_search: boolean;
   analysis_status: string;
   analysis_result?: {
     analysis_range_days?: number;
@@ -133,6 +135,7 @@ export default function GroupsPage() {
               analysisResult: group.analysis_result ? group.analysis_result : { requests_count: {}, potential_requests: {}, total_leads_count: 0, total_potential_requests: 0 },
               location: group.join_link,
               parsing: group.parsing === true ? "done" : (group.parsing === "in progress" ? "in progress" : "not started"),
+              parsingForSearch: group.parsing_for_search === true ? "done" : (group.parsing_for_search === "in progress" ? "in progress" : "not started"),
               totalPrice: group.analysis_result?.total_price,
               analysisTimeSeconds: group.analysis_result?.analysis_time_seconds
             };
@@ -217,6 +220,32 @@ export default function GroupsPage() {
       await changeParsingStatus(group.id, false);
     } catch (error) {
       console.error("Error stopping analysis for group", group.id, error);
+      // Optionally revert update if needed
+    }
+  };
+
+  const handleStartSearchParsing = async (group: Group) => {
+    // Optimistically update the group's parsing for search status
+    setGroups(prev => prev.map(g => g.id === group.id ? { ...g, parsingForSearch: "done" } : g));
+    // Also update the selectedGroup if it is the same group
+    setSelectedGroup(prev => prev && prev.id === group.id ? { ...prev, parsingForSearch: "done" } : prev);
+    try {
+      await changeParsingStatus(group.id, undefined, true);
+    } catch (error) {
+      console.error("Error starting search parsing for group", group.id, error);
+      // Optionally revert update if needed
+    }
+  };
+
+  const handleStopSearchParsing = async (group: Group) => {
+    // Optimistically update the group's parsing for search status
+    setGroups(prev => prev.map(g => g.id === group.id ? { ...g, parsingForSearch: "not started" } : g));
+    // Also update the selectedGroup if it is the same group
+    setSelectedGroup(prev => prev && prev.id === group.id ? { ...prev, parsingForSearch: "not started" } : prev);
+    try {
+      await changeParsingStatus(group.id, undefined, false);
+    } catch (error) {
+      console.error("Error stopping search parsing for group", group.id, error);
       // Optionally revert update if needed
     }
   };
@@ -452,6 +481,7 @@ export default function GroupsPage() {
               <TableHead className="whitespace-normal">Какие аккаунты вступили</TableHead>
               <TableHead className="w-40 whitespace-normal">Всего / Потенциальных лидов</TableHead>
               <TableHead className="whitespace-normal">Парсинг</TableHead>
+              <TableHead className="whitespace-normal">Парсинг для поиска</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -522,6 +552,28 @@ export default function GroupsPage() {
                   >
                     <span className="sr-only">{group.parsing === "done" ? "Остановить анализ" : "Запустить анализ"}</span>
                     {group.parsing === "done" ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 fill-current text-accent">
+                        <rect x="6" y="6" width="12" height="12" rx="2" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 fill-current text-black">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell className="whitespace-normal">
+                  <Button
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      group.parsingForSearch === "done" ? handleStopSearchParsing(group) : handleStartSearchParsing(group);
+                    }}
+                    variant={group.parsingForSearch === "done" ? "default" : "outline"}
+                    className={`p-2 rounded-full transition-transform duration-200 ${group.parsingForSearch === "done" ? "scale-110" : ""}`}
+                  >
+                    <span className="sr-only">{group.parsingForSearch === "done" ? "Остановить парсинг для поиска" : "Запустить парсинг для поиска"}</span>
+                    {group.parsingForSearch === "done" ? (
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 fill-current text-accent">
                         <rect x="6" y="6" width="12" height="12" rx="2" />
                       </svg>
@@ -681,6 +733,32 @@ export default function GroupsPage() {
                       >
                         <span className="sr-only">{selectedGroup.parsing === "done" ? "Остановить анализ" : "Запустить анализ"}</span>
                         {selectedGroup.parsing === "done" ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 fill-current text-accent">
+                            <rect x="6" y="6" width="12" height="12" rx="2" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 fill-current text-black">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        )}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  
+                  <TableRow>
+                    <TableCell className="font-bold whitespace-normal">Парсинг для поиска</TableCell>
+                    <TableCell className="whitespace-normal">
+                      <Button
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectedGroup.parsingForSearch === "done" ? handleStopSearchParsing(selectedGroup) : handleStartSearchParsing(selectedGroup);
+                        }}
+                        variant={selectedGroup.parsingForSearch === "done" ? "default" : "outline"}
+                        className={`p-2 rounded-full transition-transform duration-200 ${selectedGroup.parsingForSearch === "done" ? "scale-110" : ""}`}
+                      >
+                        <span className="sr-only">{selectedGroup.parsingForSearch === "done" ? "Остановить парсинг для поиска" : "Запустить парсинг для поиска"}</span>
+                        {selectedGroup.parsingForSearch === "done" ? (
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 fill-current text-accent">
                             <rect x="6" y="6" width="12" height="12" rx="2" />
                           </svg>

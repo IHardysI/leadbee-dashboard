@@ -31,8 +31,21 @@ export const createGroup = async (joinLink: string): Promise<any> => {
   return data;
 };
 
-export const changeParsingStatus = async (groupId: string, parsingStatus: boolean): Promise<any> => {
-  const payload = { group_id: groupId, parsing_status: parsingStatus ? "true" : "false" };
+export const changeParsingStatus = async (
+  groupId: string, 
+  parsingStatus?: boolean, 
+  parsingForSearch?: boolean
+): Promise<any> => {
+  const payload: any = { group_id: groupId };
+  
+  if (parsingStatus !== undefined) {
+    payload.parsing_status = parsingStatus ? "true" : "false";
+  }
+  
+  if (parsingForSearch !== undefined) {
+    payload.parsing_for_search = parsingForSearch ? "true" : "false";
+  }
+  
   const { data } = await axios.post(
     `${GROUPS_BASE_URL}/group/parsing_status`,
     payload,
