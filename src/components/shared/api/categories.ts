@@ -7,7 +7,7 @@ import axios from 'axios';
 
 const CATEGORY_BASE_URL =
   process.env.NEXT_PUBLIC_CATEGORY_API_URL ||
-  'https://python-platforma-leadbee-freelance.reflectai.pro/leadbee';
+  'https://python-platforma-leadbee-freelance.reflectai.pro';
 
 /**
  * Retrieves the list of available categories.
@@ -20,7 +20,7 @@ const CATEGORY_BASE_URL =
  * }
  */
 export const getCategoriesList = async (): Promise<any> => {
-  const { data } = await axios.get(`${CATEGORY_BASE_URL}/lead/categories`);
+  const { data } = await axios.get(`${CATEGORY_BASE_URL}/category/list`);
   return data;
 };
 

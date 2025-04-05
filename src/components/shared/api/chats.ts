@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const CHATS_BASE_URL: string =
   process.env.NEXT_PUBLIC_CHATS_API_URL ||
-  'https://python-platforma-leadbee-freelance.reflectai.pro/leadbee';
+  'https://python-platforma-leadbee-freelance.reflectai.pro';
 
 export interface Conversation {
   conversation_id: number;

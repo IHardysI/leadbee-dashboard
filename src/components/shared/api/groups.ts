@@ -2,11 +2,11 @@ import axios from 'axios';
 
 const GROUPS_BASE_URL: string =
   process.env.NEXT_PUBLIC_GROUPS_API_URL ||
-  'https://python-platforma-leadbee-freelance.reflectai.pro/leadbee';
+  'https://python-platforma-leadbee-freelance.reflectai.pro';
 
 export const getGroupsList = async (page: number = 1, limit: number = 15): Promise<any> => {
   const offset = (page - 1) * limit;
-  const { data } = await axios.get(`${GROUPS_BASE_URL}/groups`, { params: { limit, offset, ts: new Date().getTime() } });
+  const { data } = await axios.get(`${GROUPS_BASE_URL}/group/list`, { params: { limit, offset, ts: new Date().getTime() } });
   return data;
 };
 
@@ -57,7 +57,7 @@ export const changeParsingStatus = async (
 export const parseParticipants = async (groupId: string): Promise<any> => {
   try {
     const { data } = await axios.post(
-      `${GROUPS_BASE_URL}/parse_participants`,
+      `${GROUPS_BASE_URL}/group/participants`,
       { group_id: groupId },
       { headers: { 'Content-Type': 'application/json' } }
     );

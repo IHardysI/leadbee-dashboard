@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const ACCOUNTS_BASE_URL: string =
   process.env.NEXT_PUBLIC_ACCOUNTS_API_URL ||
-  'https://python-platforma-leadbee-freelance.reflectai.pro/leadbee';
+  'https://python-platforma-leadbee-freelance.reflectai.pro';
 
 export const getAccountsList = async (page: number = 1, perPage: number = 20): Promise<any> => {
   const { data } = await axios.get(`${ACCOUNTS_BASE_URL}/accounts/list`, { 
@@ -35,7 +35,7 @@ export const getAccountDetails = async (accountId: string): Promise<any> => {
 export const checkAccountSpam = async (alias: string): Promise<any> => {
   try {
     // Dedicated endpoint for spam checking only
-    const apiUrl = 'https://python-platforma-leadbee-freelance.reflectai.pro/check_spam';
+    const apiUrl = 'https://python-platforma-leadbee-freelance.reflectai.pro/accounts/check_spam';
     const { data } = await axios.get(apiUrl, { 
       params: { alias, ts: new Date().getTime() } 
     });
@@ -49,7 +49,7 @@ export const checkAccountSpam = async (alias: string): Promise<any> => {
 export const checkAllAccountsSpam = async (): Promise<any> => {
   try {
     // Use the dedicated endpoint for checking all accounts at once
-    const apiUrl = 'https://python-platforma-leadbee-freelance.reflectai.pro/check_spam/all';
+    const apiUrl = 'https://python-platforma-leadbee-freelance.reflectai.pro/accounts/check_spam/all';
     const { data } = await axios.get(apiUrl, { 
       params: { ts: new Date().getTime() } 
     });

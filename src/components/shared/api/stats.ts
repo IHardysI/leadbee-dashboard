@@ -76,7 +76,7 @@ function formatDateForAPI(date: Date): string {
  */
 export async function getServiceStats(dateFilter?: Date | [Date, Date]): Promise<ServiceStats[]> {
   try {
-    let url = 'https://python-platforma-leadbee-freelance.reflectai.pro/leadbee/service_stats';
+    let url = 'https://python-platforma-leadbee-freelance.reflectai.pro/analytics/service_stats';
     
     // Add date parameters if provided
     if (dateFilter) {
@@ -114,7 +114,7 @@ export async function getServiceStats(dateFilter?: Date | [Date, Date]): Promise
  */
 export async function getTotalCounts(dateFilter?: Date | [Date, Date]): Promise<TotalCounts> {
   try {
-    let url = 'https://python-platforma-leadbee-freelance.reflectai.pro/leadbee/analytics/total_counts';
+    let url = 'https://python-platforma-leadbee-freelance.reflectai.pro/analytics/total_counts';
     
     // Add date parameters if provided
     if (dateFilter) {
@@ -153,7 +153,7 @@ export async function getTotalCounts(dateFilter?: Date | [Date, Date]): Promise<
 export async function getMessagedUsersCount(date: Date): Promise<MessagedUsersCount> {
   try {
     const formattedDate = formatDateForAPI(date);
-    const url = `https://python-platforma-leadbee-freelance.reflectai.pro/leadbee/analytics/messaged_users_count?date=${formattedDate}`;
+    const url = `https://python-platforma-leadbee-freelance.reflectai.pro/analytics/messaged_users_count?date=${formattedDate}`;
     
     const response = await fetch(url);
     

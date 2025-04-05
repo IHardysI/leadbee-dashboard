@@ -8,7 +8,7 @@ import axios from 'axios';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_ANALYTICS_API_URL ||
-  'https://python-platforma-leadbee-freelance.reflectai.pro/leadbee';
+  'https://python-platforma-leadbee-freelance.reflectai.pro';
 
 /**
  * Retrieves the total count of freelancers.
@@ -76,7 +76,7 @@ export const analyzeGroup = async (groupIds: string[], categoryIds: string[]): P
     category_ids: categoryIds,
   };
 
-  const response = await axios.post(`${API_BASE_URL}/analyze_group`, payload, {
+  const response = await axios.post(`${API_BASE_URL}/group/analyze`, payload, {
     headers: {
       "Content-Type": "application/json",
     },
