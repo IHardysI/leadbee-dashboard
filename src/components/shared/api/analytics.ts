@@ -27,32 +27,26 @@ export const getFreelancersCount = async (date: string = ''): Promise<any> => {
  * The date filter can be either a single Date or a date range [startDate, endDate].
  */
 export const getLeadsCount = async (dateFilter?: Date | [Date, Date]): Promise<any> => {
-  let param: string;
+  // Handle date filtering similar to getTotalCounts
+  let params: any = {};
 
-  if (!dateFilter) {
-    param = 'overall';
-  } else if (Array.isArray(dateFilter)) {
-    // Date range
-    const startDate = dateFilter[0].toISOString().split('T')[0];
-    const endDate = dateFilter[1].toISOString().split('T')[0];
-    const { data } = await axios.get(`${API_BASE_URL}/analytics/leads_count`, { 
-      params: { 
-        start_date: startDate,
-        end_date: endDate
-      } 
-    });
-    console.log('getLeadsCount (using date range):', startDate, endDate, data);
-    return data;
-  } else {
-    // Single date
-    param = dateFilter.toISOString().split('T')[0];
+  if (dateFilter) {
+    if (Array.isArray(dateFilter)) {
+      // Date range
+      params.start_date = dateFilter[0].toISOString().split('T')[0];
+      params.end_date = dateFilter[1].toISOString().split('T')[0];
+    } else {
+      // Single date
+      params.date = dateFilter.toISOString().split('T')[0];
+    }
   }
-
-  const { data } = await axios.get(`${API_BASE_URL}/analytics/leads_count`, { 
-    params: { date: param } 
-  });
-  console.log('getLeadsCount (using param):', param, data);
-  return data;
+  
+  // Use total_counts endpoint instead of leads_count which is giving 404
+  const { data } = await axios.get(`${API_BASE_URL}/analytics/total_counts`, { params });
+  console.log('getLeadsCount (using total_counts API):', params, data);
+  
+  // Return leads_count from the total_counts response
+  return { leads_count: data.total_leads_count };
 };
 
 /**

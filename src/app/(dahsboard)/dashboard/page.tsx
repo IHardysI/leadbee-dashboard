@@ -2,7 +2,6 @@
 
 import { DollarSign, Users, CreditCard, Clock } from "lucide-react"
 import { useEffect, useState, useCallback } from "react"
-import { getLeadsCount } from "@/components/shared/api/analytics"
 import { getServiceStats, ConversationStagesCount, getTotalCounts, TotalCounts } from "@/components/shared/api/stats"
 
 import { ClientActivityChart } from "@/components/features/dashboard/components/client-activity-chart"
@@ -107,8 +106,10 @@ export default function DashboardPage() {
     try {
       // Get leads count with date filtering
       const dateFilter = getCurrentDateFilter();
-      const data = await getLeadsCount(dateFilter);
-      const count = data.leads_count;
+      
+      // Use getTotalCounts instead of getLeadsCount to avoid the 404 error
+      const data = await getTotalCounts(dateFilter);
+      const count = data.total_leads_count;
       setLeadsCount(count.toLocaleString());
     } catch (error: any) {
       console.error('Error fetching leads count:', error);
@@ -148,6 +149,8 @@ export default function DashboardPage() {
       // Fetch all data with date filtering
       const dateFilter = getCurrentDateFilter();
       console.log('Fetching total counts with date filter:', dateFilter);
+      
+      // Use the API function from stats.ts
       const data = await getTotalCounts(dateFilter);
       console.log('Received total counts:', data);
       

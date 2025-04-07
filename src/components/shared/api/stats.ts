@@ -107,6 +107,8 @@ export async function getServiceStats(dateFilter?: Date | [Date, Date]): Promise
   }
 }
 
+import axios from 'axios';
+
 /**
  * Fetches total counts data for analytics
  * @param dateFilter Optional date filter, can be either a single date or a date range
@@ -114,31 +116,22 @@ export async function getServiceStats(dateFilter?: Date | [Date, Date]): Promise
  */
 export async function getTotalCounts(dateFilter?: Date | [Date, Date]): Promise<TotalCounts> {
   try {
-    let url = 'https://python-platforma-leadbee-freelance.reflectai.pro/analytics/total_counts';
+    const url = 'https://python-platforma-leadbee-freelance.reflectai.pro/analytics/total_counts';
+    let params: any = {};
     
-    // Add date parameters if provided
     if (dateFilter) {
-      const params = new URLSearchParams();
-      
       if (Array.isArray(dateFilter)) {
         // Date range: start_date and end_date
-        params.append('start_date', formatDateForAPI(dateFilter[0]));
-        params.append('end_date', formatDateForAPI(dateFilter[1]));
+        params.start_date = dateFilter[0].toISOString().split('T')[0];
+        params.end_date = dateFilter[1].toISOString().split('T')[0];
       } else {
         // Single date
-        params.append('date', formatDateForAPI(dateFilter));
+        params.date = dateFilter.toISOString().split('T')[0];
       }
-      
-      url = `${url}?${params.toString()}`;
     }
     
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch total counts: ${response.status} ${response.statusText}`);
-    }
-    
-    return await response.json();
+    const response = await axios.get(url, { params });
+    return response.data;
   } catch (error) {
     console.error('Error fetching total counts:', error);
     throw new Error('Failed to load total counts data. Please try again later.');
