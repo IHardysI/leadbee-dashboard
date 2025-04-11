@@ -31,7 +31,7 @@ const domainsList = [
   'python-platforma-leadbee-foreign-cards.dev.reflectai.pro',
   'python-platforma-leadbee-beauty.dev.reflectai.pro',
   'python-platforma-leadbee-bot.dev.reflectai.pro',
-  'python-platforma-leadbee-freelance.reflectai.pro',
+  'python-platforma-leadbee-freelance.dev.reflectai.pro',
   'python-platforma-leadbee-keywords.dev.reflectai.pro',
   'python-platforma-leadbee-soul.dev.reflectai.pro',
   'python-platforma-marketplace-analytics.dev.reflectai.pro',

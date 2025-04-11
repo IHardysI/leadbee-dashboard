@@ -26,10 +26,12 @@ export interface GroupsResponse {
 export const getGroupsList = async ({
   page = 1,
   limit = 15,
+  query = '',
   filter = {}
 }: {
   page?: number;
   limit?: number;
+  query?: string;
   filter?: Record<string, any>;
 }): Promise<GroupsResponse> => {
   try {
@@ -42,6 +44,11 @@ export const getGroupsList = async ({
       offset,
       ts: new Date().getTime() 
     };
+    
+    // Add search query if provided
+    if (query) {
+      params.query = query;
+    }
     
     // Add any additional filter parameters
     Object.entries(filter).forEach(([key, value]) => {

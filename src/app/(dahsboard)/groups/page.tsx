@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { PlusCircle, UserPlus, Search, Pencil, CheckCircle, XCircle, SlidersHorizontal, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { getGroupsList, createGroup, changeParsingStatus, getGroupDetails, parseParticipants, addMassGroups } from "@/components/shared/api/groups"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
@@ -66,7 +66,10 @@ interface DetailedGroup {
 
 export default function GroupsPage() {
   const [groups, setGroups] = useState<Group[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [initialLoading, setInitialLoading] = useState<boolean>(true);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const newGroupInputRef = useRef<HTMLInputElement>(null);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [isAddGroupOpen, setIsAddGroupOpen] = useState<boolean>(false);
   const [isAddMassGroupsOpen, setIsAddMassGroupsOpen] = useState<boolean>(false);
@@ -92,9 +95,13 @@ export default function GroupsPage() {
   const [parsingProgress, setParsingProgress] = useState<{total: number; current: number} | null>(null);
   const [parsingInterval, setParsingInterval] = useState<NodeJS.Timeout | null>(null);
 
-  const filteredGroups = groups.filter((group) =>
-    group.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Update currentPage when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  // Remove local filtering since we're using API filtering
+  const filteredGroups = groups;
 
   const computedTotalPages = totalCount ? Math.ceil(totalCount / groupsPerPage) : 1;
   const displayedGroups = filteredGroups;
@@ -106,11 +113,21 @@ export default function GroupsPage() {
 
   useEffect(() => {
     async function fetchGroups() {
-      setLoading(true);
+      // Save current active element
+      const activeElement = document.activeElement;
+      
+      // Only set initial loading on first load
+      if (groups.length === 0 && initialLoading) {
+        setInitialLoading(true);
+      } else {
+        setLoading(true);
+      }
+      
       try {
         const response = await getGroupsList({
           page: currentPage,
-          limit: groupsPerPage
+          limit: groupsPerPage,
+          query: searchTerm
         });
         
         if(response && response.groups) {
@@ -163,11 +180,17 @@ export default function GroupsPage() {
       } catch (error) {
         console.error('Error fetching groups:', error);
       } finally {
+        setInitialLoading(false);
         setLoading(false);
+        
+        // Restore focus to search input if it was active
+        if (activeElement === searchInputRef.current) {
+          searchInputRef.current?.focus();
+        }
       }
     }
     fetchGroups();
-  }, [currentPage, groupsPerPage, navigationMode, searchTerm]);
+  }, [currentPage, groupsPerPage, navigationMode, searchTerm, groups.length]);
 
   useEffect(() => {
     if (isAnalysisDialogOpen && analysisCategories.length === 0) {
@@ -419,7 +442,7 @@ export default function GroupsPage() {
     }
   }, [selectedGroup, parsingInterval]);
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="animate-spin h-10 w-10 text-muted-foreground" />
@@ -454,11 +477,29 @@ export default function GroupsPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 pr-9 w-full" 
+            ref={searchInputRef}
           />
+          {searchTerm && (
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 w-7" 
+              onClick={() => {
+                setSearchTerm('');
+              }}
+            >
+              <XCircle className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="rounded-md border overflow-hidden">
+      <div className="rounded-md border overflow-hidden relative">
+        {loading && (
+          <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+            <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+          </div>
+        )}
         <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
@@ -917,6 +958,7 @@ export default function GroupsPage() {
                 value={newGroupLink}
                 onChange={(e) => setNewGroupLink(e.target.value)}
                 className="w-full"
+                ref={newGroupInputRef}
               />
             </div>
             <DialogFooter>
