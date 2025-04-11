@@ -12,6 +12,7 @@ type ApiConfigState = {
   projects: Project[];
   setCurrentProject: (project: Project) => void;
   updateProjects: (projects: Project[]) => void;
+  reset: () => void;
 };
 
 const formatProjectName = (domain: string): string => {
@@ -26,13 +27,13 @@ const formatProjectName = (domain: string): string => {
 };
 
 const domainsList = [
+  'python-platforma-leadbee-freelance.dev.reflectai.pro',
+  'python-platforma-leadbee-beauty.dev.reflectai.pro',
+  'python-platforma-leadbee-keywords.dev.reflectai.pro',
   'python-platforma-csz-bot.dev.reflectai.pro',
   'python-platforma-drsarha-education.dev.reflectai.pro',
   'python-platforma-leadbee-foreign-cards.dev.reflectai.pro',
-  'python-platforma-leadbee-beauty.dev.reflectai.pro',
   'python-platforma-leadbee-bot.dev.reflectai.pro',
-  //'python-platforma-leadbee-freelance.dev.reflectai.pro',
-  'python-platforma-leadbee-keywords.dev.reflectai.pro',
   'python-platforma-leadbee-soul.dev.reflectai.pro',
   'python-platforma-marketplace-analytics.dev.reflectai.pro',
   'python-platforma-marketplace-leadgen.dev.reflectai.pro',
@@ -53,6 +54,15 @@ export const useApiConfig = create<ApiConfigState>()(
       projects: initialProjects,
       setCurrentProject: (project) => set({ currentProject: project }),
       updateProjects: (projects) => set({ projects }),
+      reset: () => {
+        // Reset state to initial values
+        set({ currentProject: initialProjects[0], projects: initialProjects });
+        
+        // Clear persisted data from storage
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('api-config-store');
+        }
+      },
     }),
     {
       name: 'api-config-store',
