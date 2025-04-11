@@ -60,7 +60,7 @@ export const useApiConfig = create<ApiConfigState>()(
         
         // Clear persisted data from storage
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('api-config-store');
+          localStorage.removeItem('api-config-store-v1');
         }
       },
     }),
