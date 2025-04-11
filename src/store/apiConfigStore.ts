@@ -15,7 +15,7 @@ type ApiConfigState = {
 };
 
 const formatProjectName = (domain: string): string => {
-  const match = domain.match(/python-platforma-(.*?)\.dev\.reflectai\.pro/);
+  const match = domain.match(/python-platforma-(.*?)\.(dev\.)?reflectai\.pro/);
   if (match && match[1]) {
     return match[1]
       .split('-')
