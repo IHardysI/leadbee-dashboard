@@ -1,42 +1,22 @@
-/**
- * Types and API functions for service statistics
- */
+import axios from 'axios';
+import { getCurrentDomain } from '@/lib/apiDomains';
 
-/**
- * Represents the counts of conversations at different stages
- */
 export interface ConversationStagesCount {
   [stage: string]: number;
 }
 
-/**
- * Represents statistics for a service
- */
 export interface ServiceStats {
-  /** Number of active accounts */
   active_accounts_count: number;
-  
-  /** Number of unique conversations */
   unique_conversations_count: number;
-  
-  /** Counts of conversations categorized by stages */
   conversation_stages_count: ConversationStagesCount;
-  
-  /** Name of the service */
   service_name: string;
 }
 
-/**
- * Category count interface for total counts
- */
 export interface CategoryCount {
   count: number;
   category: string;
 }
 
-/**
- * Total counts statistics interface
- */
 export interface TotalCounts {
   total_leads_count: number;
   total_sended_leads: number;
@@ -45,49 +25,31 @@ export interface TotalCounts {
   total_leads_count_by_category: CategoryCount[];
 }
 
-/**
- * Interface for messaged users count response
- */
 export interface MessagedUsersCount {
   messaged_users_count: number;
 }
 
-/**
- * Interface for date range parameters
- */
 export interface DateRangeParams {
-  start_date?: string; // ISO format date string
-  end_date?: string; // ISO format date string
+  start_date?: string;
+  end_date?: string;
 }
 
-/**
- * Format date for API request
- * @param date Date to format
- * @returns Formatted date string (YYYY-MM-DD)
- */
 function formatDateForAPI(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
-/**
- * Fetches statistics for LeadBee services
- * @param dateFilter Optional date filter, can be either a single date or a date range
- * @returns Promise with service statistics array
- */
 export async function getServiceStats(dateFilter?: Date | [Date, Date]): Promise<ServiceStats[]> {
   try {
-    let url = 'https://python-platforma-leadbee-freelance.reflectai.pro/analytics/service_stats';
+    const domain = getCurrentDomain();
+    let url = `${domain}/analytics/service_stats`;
     
-    // Add date parameters if provided
     if (dateFilter) {
       const params = new URLSearchParams();
       
       if (Array.isArray(dateFilter)) {
-        // Date range: start_date and end_date
         params.append('start_date', formatDateForAPI(dateFilter[0]));
         params.append('end_date', formatDateForAPI(dateFilter[1]));
       } else {
-        // Single date
         params.append('date', formatDateForAPI(dateFilter));
       }
       
@@ -107,25 +69,17 @@ export async function getServiceStats(dateFilter?: Date | [Date, Date]): Promise
   }
 }
 
-import axios from 'axios';
-
-/**
- * Fetches total counts data for analytics
- * @param dateFilter Optional date filter, can be either a single date or a date range
- * @returns Promise with total counts data
- */
 export async function getTotalCounts(dateFilter?: Date | [Date, Date]): Promise<TotalCounts> {
   try {
-    const url = 'https://python-platforma-leadbee-freelance.reflectai.pro/analytics/total_counts';
+    const domain = getCurrentDomain();
+    const url = `${domain}/analytics/total_counts`;
     let params: any = {};
     
     if (dateFilter) {
       if (Array.isArray(dateFilter)) {
-        // Date range: start_date and end_date
         params.start_date = dateFilter[0].toISOString().split('T')[0];
         params.end_date = dateFilter[1].toISOString().split('T')[0];
       } else {
-        // Single date
         params.date = dateFilter.toISOString().split('T')[0];
       }
     }
@@ -138,15 +92,11 @@ export async function getTotalCounts(dateFilter?: Date | [Date, Date]): Promise<
   }
 }
 
-/**
- * Fetches messaged users count for a specific date
- * @param date The date to get messaged users count for
- * @returns Promise with messaged users count data
- */
 export async function getMessagedUsersCount(date: Date): Promise<MessagedUsersCount> {
   try {
+    const domain = getCurrentDomain();
     const formattedDate = formatDateForAPI(date);
-    const url = `https://python-platforma-leadbee-freelance.reflectai.pro/analytics/messaged_users_count?date=${formattedDate}`;
+    const url = `${domain}/analytics/messaged_users_count?date=${formattedDate}`;
     
     const response = await fetch(url);
     

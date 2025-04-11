@@ -1,44 +1,54 @@
 import axios from 'axios';
+import { getCurrentDomain } from '@/lib/apiDomains';
 
-const ACCOUNTS_BASE_URL: string =
-  process.env.NEXT_PUBLIC_ACCOUNTS_API_URL ||
-  'https://python-platforma-leadbee-freelance.reflectai.pro';
+// Dynamic Base URL that reads from the Zustand store
+export const getAccountsBaseUrl = (): string => {
+  const domain = getCurrentDomain();
+  return process.env.NEXT_PUBLIC_ACCOUNTS_API_URL || domain;
+};
 
 export const getAccountsList = async (page: number = 1, perPage: number = 20): Promise<any> => {
-  const { data } = await axios.get(`${ACCOUNTS_BASE_URL}/accounts/list`, { 
-    params: { 
+  try {
+    const ACCOUNTS_BASE_URL = getAccountsBaseUrl();
+    const params = { 
       ts: new Date().getTime(),
       page,
       perPage
-    } 
-  });
-  return data;
+    };
+    
+    const { data } = await axios.get(`${ACCOUNTS_BASE_URL}/accounts/list`, { params });
+    return data;
+  } catch (error) {
+    console.error("Error fetching accounts list:", error);
+    throw error;
+  }
 };
 
-export const getAccountDetails = async (accountId: string): Promise<any> => {
+export const getAccountDetails = async (id: string): Promise<any> => {
   try {
-    // Get account details from the accounts list
-    const data = await getAccountsList();
-    if (data && data.accounts) {
-      const account = data.accounts.find((acc: any) => acc.id === accountId);
-      if (account) {
-        return { account };
-      }
-    }
-    throw new Error("Account not found");
+    const ACCOUNTS_BASE_URL = getAccountsBaseUrl();
+    const params = { 
+      id, 
+      ts: new Date().getTime() 
+    };
+    
+    const { data } = await axios.get(`${ACCOUNTS_BASE_URL}/accounts/detail`, { params });
+    return data;
   } catch (error) {
-    console.error("Error fetching account details:", error);
+    console.error("Error getting account details:", error);
     throw error;
   }
 };
 
 export const checkAccountSpam = async (alias: string): Promise<any> => {
   try {
-    // Dedicated endpoint for spam checking only
-    const apiUrl = 'https://python-platforma-leadbee-freelance.reflectai.pro/accounts/check_spam';
-    const { data } = await axios.get(apiUrl, { 
-      params: { alias, ts: new Date().getTime() } 
-    });
+    const ACCOUNTS_BASE_URL = getAccountsBaseUrl();
+    const params = { 
+      alias, 
+      ts: new Date().getTime() 
+    };
+    
+    const { data } = await axios.get(`${ACCOUNTS_BASE_URL}/accounts/check_spam`, { params });
     return data;
   } catch (error) {
     console.error("Error checking account spam status:", error);
@@ -48,11 +58,12 @@ export const checkAccountSpam = async (alias: string): Promise<any> => {
 
 export const checkAllAccountsSpam = async (): Promise<any> => {
   try {
-    // Use the dedicated endpoint for checking all accounts at once
-    const apiUrl = 'https://python-platforma-leadbee-freelance.reflectai.pro/accounts/check_spam/all';
-    const { data } = await axios.get(apiUrl, { 
-      params: { ts: new Date().getTime() } 
-    });
+    const ACCOUNTS_BASE_URL = getAccountsBaseUrl();
+    const params = { 
+      ts: new Date().getTime() 
+    };
+    
+    const { data } = await axios.get(`${ACCOUNTS_BASE_URL}/accounts/check_spam/all`, { params });
     return data;
   } catch (error) {
     console.error("Error checking all accounts spam status:", error);
@@ -60,4 +71,16 @@ export const checkAllAccountsSpam = async (): Promise<any> => {
   }
 };
 
-// Add more account-related API functions as needed 
+export const createAccount = async (data: any): Promise<any> => {
+  try {
+    const ACCOUNTS_BASE_URL = getAccountsBaseUrl();
+    const params = { ts: new Date().getTime() };
+    
+    const response = await axios.post(`${ACCOUNTS_BASE_URL}/accounts/create`, data, { params });
+    return response.data;
+  } catch (error) {
+    console.error("Error creating account:", error);
+    throw error;
+  }
+};
+

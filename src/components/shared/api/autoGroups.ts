@@ -1,8 +1,11 @@
 import axios from 'axios';
+import { getCurrentDomain } from '@/lib/apiDomains';
 
-const BASE_URL: string =
-  process.env.NEXT_PUBLIC_GROUPS_API_URL ||
-  'https://python-platforma-leadbee-freelance.reflectai.pro/leadbee';
+// Dynamic Base URL that reads from the Zustand store
+export const getAutoGroupsBaseUrl = (): string => {
+  const domain = getCurrentDomain();
+  return process.env.NEXT_PUBLIC_GROUPS_API_URL || `${domain}/leadbee`;
+};
 
 export interface SearchChannelResult {
   id: number;
@@ -26,6 +29,7 @@ export const searchChannels = async (
   categories?: string[],
   offset?: number
 ): Promise<SearchChannelsResponse> => {
+  const BASE_URL = getAutoGroupsBaseUrl();
   try {
     const payload: Record<string, any> = { query };
     

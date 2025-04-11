@@ -1,8 +1,11 @@
 import axios from 'axios';
+import { getCurrentDomain } from '@/lib/apiDomains';
 
-const CHATS_BASE_URL: string =
-  process.env.NEXT_PUBLIC_CHATS_API_URL ||
-  'https://python-platforma-leadbee-freelance.reflectai.pro';
+// Dynamic Base URL that reads from the Zustand store
+export const getChatsBaseUrl = (): string => {
+  const domain = getCurrentDomain();
+  return process.env.NEXT_PUBLIC_CHATS_API_URL || domain;
+};
 
 export interface Conversation {
   conversation_id: number;
@@ -40,8 +43,10 @@ export const getConversationsList = async ({
   limit?: number;
   filter?: Record<string, any>;
 }): Promise<ConversationsResponse> => {
-  const offset = (page - 1) * limit;
   try {
+    const CHATS_BASE_URL = getChatsBaseUrl();
+    const offset = (page - 1) * limit;
+    
     // Prepare the params object - now simplified since we're using client-side filtering
     const params: Record<string, any> = { 
       limit, 
@@ -56,19 +61,33 @@ export const getConversationsList = async ({
       }
     });
     
-    console.log('API call with params:', params);
-    
     const { data } = await axios.get(`${CHATS_BASE_URL}/coversation/list`, { params });
-    console.log('API response total:', data.total_count);
     return data;
   } catch (error) {
-    console.error("Error fetching conversations:", error);
+    console.error("Error fetching conversations list:", error);
+    throw error;
+  }
+};
+
+export const getConversationMessages = async (conversationId: number): Promise<any> => {
+  try {
+    const CHATS_BASE_URL = getChatsBaseUrl();
+    const { data } = await axios.get(`${CHATS_BASE_URL}/coversation/messages`, {
+      params: {
+        conversation_id: conversationId,
+        ts: new Date().getTime()
+      }
+    });
+    return data;
+  } catch (error) {
+    console.error("Error fetching conversation messages:", error);
     throw error;
   }
 };
 
 export const getConversationById = async (conversationId: number): Promise<ConversationDetailResponse> => {
   try {
+    const CHATS_BASE_URL = getChatsBaseUrl();
     const { data } = await axios.get(`${CHATS_BASE_URL}/coversation/`, {
       params: {
         conversation_id: conversationId,
@@ -81,4 +100,3 @@ export const getConversationById = async (conversationId: number): Promise<Conve
     throw error;
   }
 };
-

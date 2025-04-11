@@ -1,19 +1,69 @@
 import axios from 'axios';
+import { getCurrentDomain } from '@/lib/apiDomains';
 
-const GROUPS_BASE_URL: string =
-  process.env.NEXT_PUBLIC_GROUPS_API_URL ||
-  'https://python-platforma-leadbee-freelance.reflectai.pro';
-
-export const getGroupsList = async (page: number = 1, limit: number = 15): Promise<any> => {
-  const offset = (page - 1) * limit;
-  const { data } = await axios.get(`${GROUPS_BASE_URL}/group/list`, { params: { limit, offset, ts: new Date().getTime() } });
-  return data;
+// Dynamic Base URL that reads from the Zustand store
+export const getGroupsBaseUrl = (): string => {
+  const domain = getCurrentDomain();
+  return process.env.NEXT_PUBLIC_GROUPS_API_URL || domain;
 };
 
-export const getGroupDetails = async (groupId: string): Promise<any> => {
+export interface Group {
+  id: string;
+  title: string;
+  join_link: string;
+  participants_count: number;
+  parsing_status: boolean;
+  parsing_for_search: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GroupsResponse {
+  groups: Group[];
+  total_count: number;
+}
+
+export const getGroupsList = async ({
+  page = 1,
+  limit = 15,
+  filter = {}
+}: {
+  page?: number;
+  limit?: number;
+  filter?: Record<string, any>;
+}): Promise<GroupsResponse> => {
   try {
-    const { data } = await axios.get(`${GROUPS_BASE_URL}/group`, { 
-      params: { group_id: groupId, ts: new Date().getTime() } 
+    const GROUPS_BASE_URL = getGroupsBaseUrl();
+    const offset = (page - 1) * limit;
+    
+    // Prepare params object
+    const params: Record<string, any> = { 
+      limit, 
+      offset,
+      ts: new Date().getTime() 
+    };
+    
+    // Add any additional filter parameters
+    Object.entries(filter).forEach(([key, value]) => {
+      params[key] = value;
+    });
+    
+    const { data } = await axios.get(`${GROUPS_BASE_URL}/group/list`, { params });
+    return data;
+  } catch (error) {
+    console.error("Error fetching groups list:", error);
+    throw error;
+  }
+};
+
+export const getGroupDetails = async (id: string): Promise<any> => {
+  try {
+    const GROUPS_BASE_URL = getGroupsBaseUrl();
+    const { data } = await axios.get(`${GROUPS_BASE_URL}/group`, {
+      params: { 
+        group_id: id,
+        ts: new Date().getTime() 
+      }
     });
     return data;
   } catch (error) {
@@ -22,13 +72,37 @@ export const getGroupDetails = async (groupId: string): Promise<any> => {
   }
 };
 
+export const deleteGroup = async (id: string): Promise<any> => {
+  try {
+    const GROUPS_BASE_URL = getGroupsBaseUrl();
+    const { data } = await axios.delete(`${GROUPS_BASE_URL}/group/${id}`, {
+      params: { 
+        ts: new Date().getTime() 
+      }
+    });
+    return data;
+  } catch (error) {
+    console.error("Error deleting group:", error);
+    throw error;
+  }
+};
+
 export const createGroup = async (joinLink: string): Promise<any> => {
-  const { data } = await axios.post(
-    `${GROUPS_BASE_URL}/group`,
-    { join_link: joinLink },
-    { headers: { 'Content-Type': 'application/json' } }
-  );
-  return data;
+  try {
+    const GROUPS_BASE_URL = getGroupsBaseUrl();
+    const { data } = await axios.post(
+      `${GROUPS_BASE_URL}/group`,
+      { join_link: joinLink },
+      { 
+        headers: { 'Content-Type': 'application/json' },
+        params: { ts: new Date().getTime() } 
+      }
+    );
+    return data;
+  } catch (error) {
+    console.error("Error creating group:", error);
+    throw error;
+  }
 };
 
 export const changeParsingStatus = async (
@@ -36,30 +110,43 @@ export const changeParsingStatus = async (
   parsingStatus?: boolean, 
   parsingForSearch?: boolean
 ): Promise<any> => {
-  const payload: any = { group_id: groupId };
-  
-  if (parsingStatus !== undefined) {
-    payload.parsing_status = parsingStatus ? "true" : "false";
+  try {
+    const GROUPS_BASE_URL = getGroupsBaseUrl();
+    const payload: any = { group_id: groupId };
+    
+    if (parsingStatus !== undefined) {
+      payload.parsing_status = parsingStatus ? "true" : "false";
+    }
+    
+    if (parsingForSearch !== undefined) {
+      payload.parsing_for_search = parsingForSearch ? "true" : "false";
+    }
+    
+    const { data } = await axios.post(
+      `${GROUPS_BASE_URL}/group/parsing_status`,
+      payload,
+      { 
+        headers: { 'Content-Type': 'application/json' },
+        params: { ts: new Date().getTime() } 
+      }
+    );
+    return data;
+  } catch (error) {
+    console.error("Error changing parsing status:", error);
+    throw error;
   }
-  
-  if (parsingForSearch !== undefined) {
-    payload.parsing_for_search = parsingForSearch ? "true" : "false";
-  }
-  
-  const { data } = await axios.post(
-    `${GROUPS_BASE_URL}/group/parsing_status`,
-    payload,
-    { headers: { 'Content-Type': 'application/json' } }
-  );
-  return data;
 };
 
 export const parseParticipants = async (groupId: string): Promise<any> => {
   try {
+    const GROUPS_BASE_URL = getGroupsBaseUrl();
     const { data } = await axios.post(
       `${GROUPS_BASE_URL}/group/participants`,
       { group_id: groupId },
-      { headers: { 'Content-Type': 'application/json' } }
+      { 
+        headers: { 'Content-Type': 'application/json' },
+        params: { ts: new Date().getTime() } 
+      }
     );
     return data;
   } catch (error) {
@@ -70,10 +157,14 @@ export const parseParticipants = async (groupId: string): Promise<any> => {
 
 export const addMassGroups = async (sheetUrl: string): Promise<any> => {
   try {
+    const GROUPS_BASE_URL = getGroupsBaseUrl();
     const { data } = await axios.post(
       `${GROUPS_BASE_URL}/join_channels`,
       { sheet_url: sheetUrl },
-      { headers: { 'Content-Type': 'application/json' } }
+      { 
+        headers: { 'Content-Type': 'application/json' },
+        params: { ts: new Date().getTime() } 
+      }
     );
     return data;
   } catch (error) {

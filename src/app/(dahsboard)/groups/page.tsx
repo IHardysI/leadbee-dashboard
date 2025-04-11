@@ -108,8 +108,12 @@ export default function GroupsPage() {
     async function fetchGroups() {
       setLoading(true);
       try {
-        const response = await getGroupsList(currentPage, groupsPerPage);
-        if(response.status === "success") {
+        const response = await getGroupsList({
+          page: currentPage,
+          limit: groupsPerPage
+        });
+        
+        if(response && response.groups) {
           const transformed = response.groups.map((group: any) => {
             const requestsCount = {
               spam: group.analysis_result?.requests_count?.spam || 0,
@@ -141,18 +145,16 @@ export default function GroupsPage() {
             };
           });
           if(navigationMode === 'pagination') {
-            setGroups(transformed);
+            setGroups(transformed as Group[]);
           } else {
             setGroups(prev => {
               const newGroups = transformed.filter(
                 (group: any) => !prev.some((existing: any) => existing.id === group.id)
               );
-              return [...prev, ...newGroups];
+              return [...prev, ...newGroups] as Group[];
             });
           }
-          if(response.totalPages) {
-            setTotalCount(response.totalPages * groupsPerPage);
-          } else if(response.total_count !== undefined) {
+          if(response.total_count !== undefined) {
             setTotalCount(response.total_count);
           }
         } else {

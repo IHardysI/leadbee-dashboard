@@ -17,6 +17,17 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/ui/app-sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown, Building } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+// Import the API config store
+import { useApiConfig } from "@/store/apiConfigStore";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -34,6 +45,20 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
   // Use a ref to track processed paths to prevent infinite loops
   const processedPathsRef = React.useRef<Set<string>>(new Set());
   
+  // Use the API config store instead of local state
+  const { projects, currentProject, setCurrentProject } = useApiConfig();
+  
+  // Handle project change with real domain switching
+  const handleProjectChange = (project: typeof projects[0]) => {
+    setCurrentProject(project);
+    
+    // Show message in console for debugging
+    console.log(`Switching to project: ${project.name} (${project.domain})`);
+    
+    // Reload the page to apply new API domain across all components
+    window.location.reload();
+  };
+
   // This effect will run on mount to check if we need to fetch a category name
   React.useEffect(() => {
     // Handle categories/[id]/statistics path pattern
@@ -42,11 +67,10 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
         segments[2] === 'statistics') {
       const categoryId = segments[1];
       
-      // Create a unique key for this pathname + search params combination
-      const searchParamsString = searchParams.toString();
-      const pathKey = `${pathname}?${searchParamsString}`;
+      // Create a unique key for this path to avoid duplicate processing
+      const pathKey = `${categoryId}-${searchParams.toString()}`;
       
-      // Skip if we've already processed this exact path
+      // Check if we already processed this path
       if (processedPathsRef.current.has(pathKey)) {
         return;
       }
@@ -80,7 +104,7 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
         };
       });
     }
-  }, [pathname, segments, searchParams]); // removed customBreadcrumbs from dependencies
+  }, [pathname, segments, searchParams]);
 
   const translationMap: { [key: string]: string } = {
     dashboard: "Дашборд",
@@ -150,33 +174,60 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
       <AppSidebar />
       <SidebarInset>
         <header className="flex min-h-16 py-2 shrink-0 items-center gap-2 transition-all border-b">
-          <div className="flex items-center gap-2 px-4 w-full">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4" />
-            <Breadcrumb className="w-full">
-              <BreadcrumbList className="flex-wrap">
-                {breadcrumbs.map((crumb, index) => (
-                  <React.Fragment key={crumb.href}>
-                    {index < breadcrumbs.length - 1 ? (
-                      <>
-                        <BreadcrumbItem className="hidden md:block">
-                          <BreadcrumbLink href={crumb.href}>
+          <div className="flex items-center justify-between w-full pr-4">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="ml-2" />
+              <Separator orientation="vertical" className="mr-2 h-4" />
+              <Breadcrumb className="flex-grow">
+                <BreadcrumbList className="flex-wrap">
+                  {breadcrumbs.map((crumb, index) => (
+                    <React.Fragment key={crumb.href}>
+                      {index < breadcrumbs.length - 1 ? (
+                        <>
+                          <BreadcrumbItem className="hidden md:block">
+                            <BreadcrumbLink href={crumb.href}>
+                              {crumb.label}
+                            </BreadcrumbLink>
+                          </BreadcrumbItem>
+                          <BreadcrumbSeparator className="hidden md:block" />
+                        </>
+                      ) : (
+                        <BreadcrumbItem>
+                          <BreadcrumbPage className="break-all overflow-visible max-w-none">
                             {crumb.label}
-                          </BreadcrumbLink>
+                          </BreadcrumbPage>
                         </BreadcrumbItem>
-                        <BreadcrumbSeparator className="hidden md:block" />
-                      </>
-                    ) : (
-                      <BreadcrumbItem>
-                        <BreadcrumbPage className="break-all overflow-visible max-w-none">
-                          {crumb.label}
-                        </BreadcrumbPage>
-                      </BreadcrumbItem>
-                    )}
-                  </React.Fragment>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </BreadcrumbList>
+              </Breadcrumb>
+            </div>
+            
+            {/* Project Selection Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Building className="h-4 w-4" />
+                  <span>{currentProject.name}</span>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[300px]">
+                {projects.map((project) => (
+                  <DropdownMenuItem 
+                    key={project.id}
+                    onClick={() => handleProjectChange(project)}
+                    className={`cursor-pointer ${currentProject.id === project.id ? 'bg-muted' : ''}`}
+                  >
+                    <span className="font-medium">{project.name}</span>
+                    <span className="ml-auto text-xs text-muted-foreground truncate max-w-[150px]">
+                      {project.domain.replace('python-platforma-', '').replace('.dev.reflectai.pro', '')}
+                    </span>
+                  </DropdownMenuItem>
                 ))}
-              </BreadcrumbList>
-            </Breadcrumb>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
         <div className="p-2">{children}</div>
@@ -187,7 +238,7 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <Suspense fallback={<div>Загрузка...</div>}>
+    <Suspense fallback={<div>Loading...</div>}>
       <DashboardLayoutContent>{children}</DashboardLayoutContent>
     </Suspense>
   );
