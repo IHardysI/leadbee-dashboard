@@ -8,6 +8,7 @@ type Project = {
 };
 
 type ApiConfigState = {
+  version: number;
   currentProject: Project;
   projects: Project[];
   setCurrentProject: (project: Project) => void;
@@ -28,17 +29,17 @@ const formatProjectName = (domain: string): string => {
 
 const domainsList = [
   'python-platforma-leadbee-freelance.dev.reflectai.pro',
+  'python-platforma-leadbee-foreign-cards.dev.reflectai.pro',
+  'python-platforma-marketplace-analytics.dev.reflectai.pro',
   'python-platforma-leadbee-beauty.dev.reflectai.pro',
   'python-platforma-leadbee-keywords.dev.reflectai.pro',
-  'python-platforma-csz-bot.dev.reflectai.pro',
-  'python-platforma-drsarha-education.dev.reflectai.pro',
-  'python-platforma-leadbee-foreign-cards.dev.reflectai.pro',
-  'python-platforma-leadbee-bot.dev.reflectai.pro',
-  'python-platforma-leadbee-soul.dev.reflectai.pro',
-  'python-platforma-marketplace-analytics.dev.reflectai.pro',
-  'python-platforma-marketplace-leadgen.dev.reflectai.pro',
-  'python-platforma-marketplaces.dev.reflectai.pro',
   'python-platforma-max-personal.dev.reflectai.pro',
+  
+  // 'python-platforma-csz-bot.dev.reflectai.pro',
+  // 'python-platforma-leadbee-bot.dev.reflectai.pro',
+  // 'python-platforma-leadbee-soul.dev.reflectai.pro',
+  // 'python-platforma-marketplace-leadgen.dev.reflectai.pro',
+  // 'python-platforma-marketplaces.dev.reflectai.pro',
 ];
 
 const initialProjects: Project[] = domainsList.map((domain, index) => ({
@@ -50,22 +51,35 @@ const initialProjects: Project[] = domainsList.map((domain, index) => ({
 export const useApiConfig = create<ApiConfigState>()(
   persist(
     (set) => ({
+      version: 1,
       currentProject: initialProjects[0],
       projects: initialProjects,
       setCurrentProject: (project) => set({ currentProject: project }),
       updateProjects: (projects) => set({ projects }),
       reset: () => {
-        // Reset state to initial values
-        set({ currentProject: initialProjects[0], projects: initialProjects });
+        set({ 
+          version: 1,
+          currentProject: initialProjects[0], 
+          projects: initialProjects 
+        });
         
-        // Clear persisted data from storage
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('api-config-store-v1');
+          localStorage.removeItem('api-config-store');
         }
       },
     }),
     {
       name: 'api-config-store',
+      partialize: (state) => ({
+        version: state.version,
+        currentProject: state.currentProject,
+        projects: state.projects
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state && state.version !== 1) {
+          state.reset();
+        }
+      }
     }
   )
 ); 

@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 
 // Import the API config store
 import { useApiConfig } from "@/store/apiConfigStore";
+import { resetAllStores } from "@/lib/resetStores";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -50,9 +51,12 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
   
   // Handle project change with real domain switching
   const handleProjectChange = (project: typeof projects[0]) => {
+    // Reset other stores if needed when changing projects
+    resetAllStores();
+    
+    // Set the new project
     setCurrentProject(project);
     
-    // Show message in console for debugging
     console.log(`Switching to project: ${project.name} (${project.domain})`);
     
     // Reload the page to apply new API domain across all components

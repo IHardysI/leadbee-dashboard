@@ -1,4 +1,6 @@
 import { useApiConfig } from '@/store/apiConfigStore';
+// Import other stores here
+// import { useExampleStore } from '@/components/shared/store/exampleStore';
 
 /**
  * Resets all Zustand stores to their initial state
@@ -9,10 +11,12 @@ export const resetAllStores = () => {
   useApiConfig.getState().reset();
   
   // Add other store resets here
-  // example: useOtherStore.getState().reset();
+  // useExampleStore.getState().someResetFunction();
   
-  // Optional: clear all localStorage if you want to reset everything
-  // if (typeof window !== 'undefined') {
-  //   localStorage.clear();
-  // }
+  // Clear localStorage for specific stores
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('api-config-store');
+    // Add other store keys as needed
+    // localStorage.removeItem('other-store-key');
+  }
 }; 
