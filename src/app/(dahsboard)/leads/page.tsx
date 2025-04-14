@@ -35,178 +35,64 @@ export default function LeadsPage() {
   const [displayMode, setDisplayMode] = useState<'pagination' | 'loadmore'>('pagination');
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [allLeads, setAllLeads] = useState<Lead[]>([]);
-  const [isLoadingAllLeads, setIsLoadingAllLeads] = useState<boolean>(false);
-  const [allLeadsLoaded, setAllLeadsLoaded] = useState<boolean>(false);
+  const [reloadTrigger, setReloadTrigger] = useState<number>(0);
 
-  const computedTotalPages = (() => {
-    if (filterStatus && allLeadsLoaded) {
-      const filteredCount = allLeads.filter(lead => lead.moderation_status === filterStatus).length;
-      return Math.ceil(filteredCount / leadsPerPage);
-    } else {
-      return totalCount ? Math.ceil(totalCount / leadsPerPage) : 1;
-    }
-  })();
-
-  useEffect(() => {
-    if (filterStatus && !allLeadsLoaded && !isLoadingAllLeads) {
-      const fetchAllLeads = async () => {
-        setIsLoadingAllLeads(true);
-        try {
-          console.log('Loading all leads for filtering...');
-          
-          const batchSize = 50;
-          let currentFetchPage = 1;
-          let allFetchedLeads: Lead[] = [];
-          let hasMore = true;
-          let fetchAttempts = 0;
-          const maxAttempts = 10;
-          
-          while (hasMore && fetchAttempts < maxAttempts) {
-            fetchAttempts++;
-            const response = await getLeadsList(currentFetchPage, batchSize, '');
-            
-            if (response.leads?.length > 0) {
-              allFetchedLeads = [...allFetchedLeads, ...response.leads];
-              console.log(`Loaded ${allFetchedLeads.length} leads out of ${response.total_count || 'unknown'}`);
-              
-              if (
-                allFetchedLeads.length >= (response.total_count || 0) || 
-                allFetchedLeads.length >= 500 || 
-                response.leads.length < batchSize
-              ) {
-                hasMore = false;
-                setAllLeadsLoaded(true);
-              } else {
-                currentFetchPage++;
-              }
-            } else {
-              hasMore = false;
-              setAllLeadsLoaded(true);
-            }
-          }
-          
-          if (fetchAttempts >= maxAttempts) {
-            console.warn('Reached maximum fetch attempts - stopping to prevent infinite loop');
-            setAllLeadsLoaded(true);
-          }
-          
-          setAllLeads(allFetchedLeads);
-          
-          const filteredLeads = allFetchedLeads.filter(
-            lead => lead.moderation_status === filterStatus
-          );
-          
-          if (displayMode === 'pagination') {
-            const startIndex = (currentPage - 1) * leadsPerPage;
-            const endIndex = startIndex + leadsPerPage;
-            setLeads(filteredLeads.slice(startIndex, endIndex));
-          } else {
-            setLeads(prev => {
-              const existingIds = new Set(prev.map(lead => lead.id));
-              const newLeads = filteredLeads.filter(lead => !existingIds.has(lead.id));
-              return [...prev, ...newLeads];
-            });
-          }
-          
-        } catch (err) {
-          console.error('Error fetching all leads:', err);
-          setAllLeadsLoaded(true);
-        } finally {
-          setIsLoadingAllLeads(false);
-        }
-      };
-      
-      fetchAllLeads();
-    }
-  }, [filterStatus, allLeadsLoaded, isLoadingAllLeads, currentPage, leadsPerPage, displayMode]);
+  // Calculate total pages based on the total count
+  const computedTotalPages = Math.ceil(totalCount / leadsPerPage) || 1;
 
   useEffect(() => {
     async function fetchLeads() {
-      // Don't fetch while loading all leads
-      if (isLoadingAllLeads) return;
-      
-      setLoading(true);
+      if (displayMode === 'loadmore' && leads.length > 0) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
       try {
-        // If filtering and all leads are loaded, use client-side filtering
-        if (filterStatus && allLeadsLoaded) {
-          console.log('Using client-side filtering for leads');
-          
-          const filteredLeads = allLeads.filter(
-            lead => lead.moderation_status === filterStatus
-          );
-          
-          // Apply pagination to filtered results
-          const startIndex = (currentPage - 1) * leadsPerPage;
-          const endIndex = startIndex + leadsPerPage;
-          
+        // Use API's status filtering directly - pass filterStatus to the API
+        const result = await getLeadsList(currentPage, leadsPerPage, filterStatus);
+        
+        if(result.leads) {
           if (displayMode === 'pagination') {
-            setLeads(filteredLeads.slice(startIndex, endIndex));
+            setLeads(result.leads);
           } else {
-            // For load more, we append new filtered leads
-            const prevLeadsCount = leads.length;
-            const newLeads = filteredLeads.slice(prevLeadsCount, prevLeadsCount + leadsPerPage);
-            
-            setLeads(prev => {
-              const existingIds = new Set(prev.map(lead => lead.id));
-              const uniqueNewLeads = newLeads.filter(lead => !existingIds.has(lead.id));
-              return [...prev, ...uniqueNewLeads];
+            setLeads(prevLeads => {
+              const existingIds = new Set(prevLeads.map(lead => lead.id));
+              const uniqueNewLeads = result.leads.filter(
+                (lead: Lead) => !existingIds.has(lead.id)
+              );
+              
+              console.log(`Fetched ${result.leads.length} leads, adding ${uniqueNewLeads.length} new ones`);
+              
+              return [...prevLeads, ...uniqueNewLeads];
             });
           }
           
-          // Update hasMore flag based on filtered count
-          setHasMore(endIndex < filteredLeads.length);
-          
-        } else {
-          // Regular API-based fetching
-          const result = await getLeadsList(currentPage, leadsPerPage, filterStatus);
-          
-          if(result.leads) {
-            if (displayMode === 'pagination') {
-              setLeads(result.leads);
-            } else {
-              setLeads(prevLeads => {
-                const existingIds = new Set(prevLeads.map(lead => lead.id));
-                const uniqueNewLeads = result.leads.filter(
-                  (lead: Lead) => !existingIds.has(lead.id)
-                );
-                
-                console.log(`Fetched ${result.leads.length} leads, adding ${uniqueNewLeads.length} new ones`);
-                
-                return [...prevLeads, ...uniqueNewLeads];
-              });
-            }
-            
-            if(result.totalPages) {
-              setTotalCount(result.totalPages * leadsPerPage);
-            } else if(result.total_count !== undefined) {
-              setTotalCount(result.total_count);
-            }
-            
-            const actualTotalPages = result.total_count 
-              ? Math.ceil(result.total_count / leadsPerPage) 
-              : (result.totalPages || 1);
-            
-            setHasMore(currentPage < actualTotalPages && result.leads.length > 0);
+          if(result.total_count !== undefined) {
+            setTotalCount(result.total_count);
           }
+          
+          const actualTotalPages = result.total_count 
+            ? Math.ceil(result.total_count / leadsPerPage) 
+            : 1;
+          
+          setHasMore(currentPage < actualTotalPages && result.leads.length > 0);
         }
       } catch (err) {
         console.error('Error fetching leads:', err);
       } finally {
         setLoading(false);
+        setLoadingMore(false);
       }
     }
     
     fetchLeads();
-  }, [currentPage, leadsPerPage, displayMode, filterStatus, allLeadsLoaded, isLoadingAllLeads, allLeads]);
+  }, [currentPage, leadsPerPage, displayMode, filterStatus, reloadTrigger]);
 
-  useEffect(() => {
-    setTotalCount(0);
-  }, [filterStatus]);
-
-  if (loading || isLoadingAllLeads) {
+  if (loading && (!loadingMore || leads.length === 0)) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="animate-spin h-10 w-10 text-muted-foreground" />
@@ -230,20 +116,21 @@ export default function LeadsPage() {
   const resetFilter = () => {
     console.log("Resetting filter");
     setLeads([]);
-    setFilterStatus('');
-    setCurrentPage(1);
-    setDisplayMode('pagination');
+    
+    // If already on "All" filter (empty filterStatus), force a reload
+    if (filterStatus === '' && currentPage === 1) {
+      setReloadTrigger(prev => prev + 1);
+    } else {
+      setFilterStatus('');
+      setCurrentPage(1);
+      setDisplayMode('pagination');
+    }
   };
 
   const applyFilter = (status: string) => {
     console.log(`Applying status filter: ${status}`);
     setLeads([]);
-    
-    if (filterStatus === status) {
-      setFilterStatus('');
-    } else {
-      setFilterStatus(status);
-    }
+    setFilterStatus(status);
     setCurrentPage(1);
     setDisplayMode('pagination');
   };
@@ -440,21 +327,20 @@ export default function LeadsPage() {
           </Table>
         </div>
       </div>
-      {leads.length > 0 && (
+
+      {loadingMore && (
+        <div className="flex justify-center my-4">
+          <Loader2 className="animate-spin h-6 w-6 text-muted-foreground" />
+        </div>
+      )}
+
+      {leads.length > 0 && !loadingMore && (
         <PaginationUniversal 
           currentPage={currentPage} 
           totalPages={computedTotalPages}
           onPageChange={handlePageChange}
           onLoadMore={handleLoadMore}
-          showLoadMore={
-            !isLoadingAllLeads && (
-              !filterStatus 
-              ? currentPage < computedTotalPages 
-              : allLeadsLoaded && leads.length < (
-                allLeads.filter(lead => lead.moderation_status === filterStatus).length
-              )
-            )
-          }
+          showLoadMore={hasMore}
         />
       )}
     </div>
