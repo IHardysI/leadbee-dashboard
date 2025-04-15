@@ -34,6 +34,10 @@ export interface ConversationDetailResponse {
   messages: ConversationMessage[];
 }
 
+export interface DistinctStagesResponse {
+  stages: string[];
+}
+
 export const getConversationsList = async ({
   page = 1, 
   limit = 10, 
@@ -47,16 +51,16 @@ export const getConversationsList = async ({
     const CHATS_BASE_URL = getChatsBaseUrl();
     const offset = (page - 1) * limit;
     
-    // Prepare the params object - now simplified since we're using client-side filtering
+    // Prepare the params object - include all filter parameters
     const params: Record<string, any> = { 
       limit, 
       offset,
       ts: new Date().getTime()
     };
     
-    // Add any other filter parameters except stage (handled on client side)
+    // Add all filter parameters including stage to be handled by the backend
     Object.entries(filter).forEach(([key, value]) => {
-      if (key !== 'stage') {
+      if (value !== null && value !== undefined && value !== '') {
         params[key] = value;
       }
     });
@@ -97,6 +101,21 @@ export const getConversationById = async (conversationId: number): Promise<Conve
     return data;
   } catch (error) {
     console.error("Error fetching conversation details:", error);
+    throw error;
+  }
+};
+
+export const getDistinctStages = async (): Promise<DistinctStagesResponse> => {
+  try {
+    const CHATS_BASE_URL = getChatsBaseUrl();
+    const { data } = await axios.get(`${CHATS_BASE_URL}/coversation/distinct_stages`, {
+      params: {
+        ts: new Date().getTime()
+      }
+    });
+    return data;
+  } catch (error) {
+    console.error("Error fetching distinct stages:", error);
     throw error;
   }
 };
