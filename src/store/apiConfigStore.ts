@@ -33,7 +33,8 @@ const domainsList = [
   'python-platforma-marketplace-analytics.dev.reflectai.pro',
   'python-platforma-leadbee-beauty.dev.reflectai.pro',
   'python-platforma-max-personal.dev.reflectai.pro',
-  'python-platforma-leadbee-specialists.dev.reflectai.pro'
+  'python-platforma-leadbee-specialists.dev.reflectai.pro',
+  'python-platforma-leadbee-business.dev.reflectai.pro'
   
   // 'python-platforma-leadbee-keywords.dev.reflectai.pro',
   // 'python-platforma-csz-bot.dev.reflectai.pro',
